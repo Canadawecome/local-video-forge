@@ -173,7 +173,7 @@ class OpusManager:
         batch_id: str,
         source_id: str,
         project_id: str,
-        max_wait_sec: int = 600,
+        max_wait_sec: int = 3600,
         poll_interval_sec: int = 15,
     ) -> list[ClipRecord]:
         """Polls OpusClip API until project reaches COMPLETE, then downloads all clips."""
@@ -236,14 +236,15 @@ class OpusManager:
             clip_export_dir.mkdir(parents=True, exist_ok=True)
             dest_file = clip_export_dir / "original_opus.mp4"
 
-            # Download MP4
+            # Download MP4 if not already present
             dl_url = item.get("uriForExport") or item.get("uriForPreview")
             if not dl_url:
                 continue
 
-            dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(dl_req, timeout=120) as resp, open(dest_file, "wb") as f_out:
-                shutil.copyfileobj(resp, f_out)
+            if not (dest_file.exists() and dest_file.stat().st_size > 10000):
+                dl_req = urllib.request.Request(dl_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(dl_req, timeout=120) as resp, open(dest_file, "wb") as f_out:
+                    shutil.copyfileobj(resp, f_out)
 
             probe = probe_video(dest_file)
             sha = compute_sha256(dest_file)

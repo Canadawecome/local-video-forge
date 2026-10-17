@@ -1,0 +1,9 @@
+{
+  "schema_version": "3.4",
+  "source_candidate_id": "C01",
+  "verified_by": "OPUS_PROVIDER",
+  "opus_project_id": "replace_with_real_project_id",
+  "source_time_ranges": [[80000, 149000]],
+  "time_unit": "MILLISECONDS",
+  "evidence_note": "Opus exported clip original timeRanges, verified from actual project metadata"
+}

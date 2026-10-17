@@ -1,0 +1,12 @@
+{
+  "schema_version": "3.2",
+  "preset": "CINEMATIC_ASMR",
+  "source_clip_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "duration_seconds": 75.0,
+  "timeline_policy": "PRESERVE_SOURCE_TIMECODES",
+  "audio_policy": "NO_AUDIO_MODIFICATION",
+  "grading": {"contrast":1.04, "saturation":1.035, "brightness":0.0},
+  "micro_zooms": [{"start":12.0,"end":14.0,"peak_scale":1.045,"center_x":0.5,"center_y":0.5,"evidence_ref":"protected_asmr:hammer@12.0"}],
+  "result_first_hook": {"start":42.0,"end":43.5,"evidence_ref":"shot_08","reason":"Best hammer strike for source recut","status":"REQUIRES_UPSTREAM_RECUT"},
+  "storyboard_notes": ["Example uses placeholder hash: do not render until SHA-256 is replaced with real clip hash."]
+}

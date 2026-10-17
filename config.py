@@ -10,6 +10,18 @@ from dotenv import load_dotenv
 BUNDLE_DIR = Path(__file__).resolve().parent
 load_dotenv(BUNDLE_DIR / ".env", override=True)
 
+# Ensure FFmpeg and local venv scripts are discoverable in PATH
+extra_paths = [
+    str(BUNDLE_DIR / ".venv" / "Scripts"),
+    r"C:\Users\ADMIN\AppData\Local\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-9.0.2-full_build\bin",
+]
+current_path = os.environ.get("PATH", "")
+for ep in extra_paths:
+    if os.path.exists(ep) and ep not in current_path:
+        current_path = f"{ep};{current_path}"
+os.environ["PATH"] = current_path
+
+
 class Config:
     # Base paths
     BUNDLE_ROOT: Path = BUNDLE_DIR

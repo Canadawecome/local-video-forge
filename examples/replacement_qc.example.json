@@ -1,0 +1,10 @@
+{
+  "reviewed_by": "REPLACE_WITH_REVIEWER",
+  "source_sha256": "REPLACE_WITH_ACTUAL_SHA256_OF_clip.mp4",
+  "residual_sha256": "REPLACE_WITH_ACTUAL_SHA256_OF_audio/workshop_clean.wav",
+  "source_voice_absent": true,
+  "asmr_preserved": true,
+  "clip_transcript_checked": true,
+  "source_speech_absence_confirmed": false,
+  "notes": "QC is language-independent; true flags are human-review assertions, not an ASR guarantee. For speech-free source set source_speech_absence_confirmed=true; no residual required."
+}

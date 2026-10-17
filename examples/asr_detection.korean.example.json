@@ -1,0 +1,14 @@
+{
+  "language_detection": {
+    "language": "ko",
+    "confidence": 0.96,
+    "evidence_ref": "whisper_ko_lang_id_clip_001"
+  },
+  "country_review": {
+    "verified": false
+  },
+  "topic_en": "Knife forging and polishing",
+  "verified_facts": [
+    {"claim_en": "The video shows a knife being polished", "evidence_refs": ["frame_014"]}
+  ]
+}

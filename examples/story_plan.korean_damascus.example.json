@@ -1,0 +1,35 @@
+{
+  "schema_version": "3.3",
+  "clip_uid": "clip_ko_damascus_001",
+  "mode": "ENGLISH_STORYTELLING_WITH_CLEAN_ASMR",
+  "rights_status": "VERIFIED",
+  "music_rights_status": "NO_MUSIC",
+  "source_context": {
+    "source_language": "ko",
+    "source_language_status": "CONFIRMED",
+    "language_evidence_refs": ["asr_verified_ko_01"],
+    "source_country": null,
+    "source_country_status": "UNKNOWN",
+    "country_evidence_refs": [],
+    "country_reviewed_by": null,
+    "topic_en": "Damascus knife forging and grinding",
+    "verified_facts": [
+      {"claim_en": "The blade is forged and ground on screen", "evidence_refs": ["frame_004", "frame_018"]}
+    ]
+  },
+  "source_speech_status": "CONFIRMED_PRESENT",
+  "source_speech": [
+    {"id": "ko_001", "start": 4.2, "end": 7.3, "language": "ko", "transcript": "(insert verified Korean transcript)", "evidence_ref": "asr_verified_ko_01"}
+  ],
+  "protected_asmr": [{"start": 8.0, "end": 10.5, "kind": "hammer"}],
+  "narration_segments": [
+    {"id": "story_001", "role": "hook", "start": 0.4, "end": 3.1,
+      "text_en": "Every hammer strike brings this blade closer to its final form.",
+      "audio_path": "audio/tts/story_001.wav", "evidence_refs": ["frame_004"]}
+  ],
+  "approved_workshop_stem_path": "audio/workshop_clean.wav",
+  "workshop_stem_qc_passed": true,
+  "settings": {"voice_gain_db": 0.0, "peak_ceiling_dbfs": -1.0},
+  "voice_id": "QIhD5ivPGEoYZQDocuHI",
+  "tts_model_id": "eleven_multilingual_v2"
+}

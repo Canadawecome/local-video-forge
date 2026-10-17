@@ -1,63 +1,32 @@
-# Local Video Forge v3.1 Clean ASMR
+# Local Video Forge v3.6 — FINAL FULL STORY COVERAGE
 
-Portable source bundle for the Local Video Forge pipeline and web dashboard.
-Generated media, local databases, caches, virtual environments, and API secrets are intentionally excluded.
+**QUAN TRỌNG:** Vấn đề vừa sửa: trước đây `story_plan.json` chỉ có 1 đoạn 3s nhưng renderer vẫn có thể xuất video 70s. Bản này từ chối toàn bộ chuỗi đó ở ba điểm: script, ElevenLabs, render.
 
-## Requirements
+## Điểm khởi động cho coding agent
 
-- Python 3.11 or 3.12
-- FFmpeg (`ffmpeg` and `ffprobe` must be available on `PATH`)
-- OpenAI-compatible, OpusClip, and ElevenLabs API credentials
+1. Đọc `SPEC_Local_Video_Forge_v3.6_FINAL_FULL_STORY.md` làm **SPEC duy nhất**.
+2. Giữ các module v3.5 duyệt viral/rights/FFprobe >65s; dùng chúng trước script/TTS.
+3. GPT writer: `full_story_writer_v36.py` (tự bố trí ~7-12 voice slots, retry có validation).
+4. Script integrity: `story_coverage_v36.py` (word count, coverage, start/end gaps, SHA256 full script/TTS script).
+5. ElevenLabs: `elevenlabs_full_story_v36.py` (mỗi slot một request with-timestamps khi `--execute`, check đủ N file).
+6. Render: **chỉ** `storytelling_render_v36.py process --folder ...`; bản v3.5/v3.3 kế thừa trong ZIP cũng có gate mới chống gọi tắt.
+7. Run `PYTHONPATH=.:tests pytest -q tests/test_full_story_v36.py tests/test_writer_retry_v36.py tests/test_duration_gate_v35.py`.
+8. Run smoke: `PYTHONPATH=.:tests python tests/smoke_render_v36.py` (offline, không API calls).
 
-## Install on a new macOS/Linux machine
-
-```bash
-git clone https://github.com/Canadawecome/local-video-forge.git
-cd local-video-forge
-chmod +x setup.sh
-./setup.sh
-```
-
-Open `.env`, add your API keys, then launch the dashboard:
+### Bước chạy an toàn
 
 ```bash
-.venv/bin/python main.py
+python -m pip install -r requirements.txt
+python director_workflow_v35.py gate --clip-folder /work/clips/clip_001
+python full_story_writer_v36.py generate --folder /work/clips/clip_001 --model YOUR_ACTUAL_MODEL
+python full_story_writer_v36.py generate --folder /work/clips/clip_001 --model YOUR_ACTUAL_MODEL --execute
+python director_workflow_v35.py tts-handoff --clip-folder /work/clips/clip_001
+python elevenlabs_full_story_v36.py generate --folder /work/clips/clip_001 --execute
+python storytelling_render_v36.py process --folder /work/clips/clip_001
 ```
 
-Open <http://127.0.0.1:8000>.
+**API keys bắt buộc khi chạy live:** `OPENAI_API_KEY`, `ELEVENLABS_API_KEY`; OpusClip, nguồn quyền footage và speech separation cần nối/kiểm chứng trong deployment thực.
 
-To run the CLI instead:
+**Không quay lại** German-only assumptions, dub tiếng nguồn từng câu, mute/duck tiếng búa, phụ đề nằm ngoài 85%, hay cho qua clip dưới hoặc bằng 65 giây.
 
-```bash
-.venv/bin/python main.py run "YOUTUBE_URL"
-```
-
-## Windows setup
-
-Install Python 3.11/3.12 and FFmpeg, then run:
-
-```powershell
-py -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-Copy-Item .env.example .env
-.venv\Scripts\python main.py
-```
-
-## Configuration
-
-Copy `.env.example` to `.env` and set at least:
-
-- `OPENAI_API_KEY`
-- `OPUSCLIP_API_KEY`
-- `ELEVENLABS_API_KEY`
-
-Never commit `.env`. Runtime files are created under `data/` automatically.
-
-## Tests
-
-```bash
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pytest -q
-```
-
-The detailed version contracts and migration notes remain in the repository for reference.
+Kiểm thử offline: 31/31 unit/regression; FFmpeg smoke 70s/8 TTS segments/75.5% coverage đạt. **Chưa xác nhận APIs live và chất lượng nguồn thực.**

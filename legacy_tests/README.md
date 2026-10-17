@@ -1,0 +1,1 @@
+Legacy tests are preserved for historical reference, but **v3.4 and earlier tests that approve 16s clips intentionally conflict with the v3.5 hard >65s rule**. They are not the v3.5 acceptance suite. v3.5 tests are at `tests/test_duration_gate_v35.py`.
