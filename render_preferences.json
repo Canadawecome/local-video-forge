@@ -1,0 +1,7 @@
+{
+  "subtitle_anchor_pct": 85.0,
+  "subtitle_font_width_ratio": 0.05,
+  "max_words_per_caption": 4,
+  "max_characters_per_caption": 28,
+  "measure_mastering": true
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "start": 0.0,
+    "end": 9.0,
+    "anchor_pct": 85.0
+  },
+  {
+    "start": 9.0,
+    "end": 16.5,
+    "anchor_pct": 79.0,
+    "italic_terms": [
+      "blacksmith"
+    ]
+  }
+]

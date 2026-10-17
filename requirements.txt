@@ -1,0 +1,8 @@
+fastapi>=0.115,<1
+faster-whisper>=1.1,<2
+numpy>=1.26,<3
+pillow>=10,<12
+pydantic>=2.8,<3
+python-dotenv>=1,<2
+soundfile>=0.12,<1
+uvicorn[standard]>=0.30,<1

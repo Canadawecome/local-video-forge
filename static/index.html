@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Local Video Forge v2.6 — GPT-5.6 Sol ONLY</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --card-border: #1f2d4d;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #10b981;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --code-bg: #080c16;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo-badge {
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: white;
+    }
+    h1 { font-size: 22px; font-weight: 700; }
+    .subtitle { font-size: 13px; color: var(--text-muted); }
+    .stats-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .stat-pill strong { color: var(--primary); }
+    .grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: var(--primary); }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    button.btn-primary {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+    button.btn-primary:hover { background: var(--primary-hover); }
+    button.btn-primary:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .progress-box {
+      margin-top: 16px;
+      background: var(--code-bg);
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      display: none;
+    }
+    .progress-bar-bg {
+      background: #1e293b;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+      margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      width: 0%;
+      height: 100%;
+      transition: width 0.3s;
+    }
+    .progress-text {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Gallery */
+    .clips-gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+    }
+    .clip-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .clip-video-box {
+      background: black;
+      aspect-ratio: 9/16;
+      max-height: 380px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .clip-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+    .clip-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .clip-idx {
+      background: #1e293b;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      color: #93c5fd;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+    .badge-ready { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; }
+    .badge-pending { background: #78350f; color: #fde68a; }
+    .clip-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .clip-angle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .copy-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--card-border);
+    }
+    .btn-copy {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .btn-copy:hover { background: #334155; border-color: var(--primary); }
+    .btn-copy.copied { background: #065f46; border-color: #10b981; color: white; }
+    .btn-copy-all {
+      grid-column: span 2;
+      background: #1d4ed8;
+      border-color: #3b82f6;
+      color: white;
+      font-weight: 600;
+    }
+    .btn-copy-all:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="brand">
+      <div class="logo-badge">⚡</div>
+      <div>
+        <h1>Local Video Forge v2.6</h1>
+        <div class="subtitle">1 YouTube URL → N Usable Clips → N Independent Scripts → N Voices → N Output Folders</div>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-pill">Model: <strong>gpt-5.6-sol</strong></div>
+      <div class="stat-pill">Endpoint: <strong>trouter.cloud</strong></div>
+      <div class="stat-pill">Voice: <strong>Adam (QIhD5ivPGEoYZQDocuHI)</strong></div>
+      <div class="stat-pill">Status: <strong id="statReady">0</strong> Ready</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Left Column: Controls -->
+    <div>
+      <div class="card">
+        <div class="card-title">🎬 Start Production</div>
+        
+        <div class="form-group">
+          <label>YouTube Source URL</label>
+          <input type="text" id="youtubeUrl" value="https://www.youtube.com/watch?v=AxtSchmiedenFelix" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
+
+        <div class="form-group">
+          <label>Optional Local Subtitle (.srt)</label>
+          <input type="text" id="localSrt" placeholder="/path/to/subtitles.srt">
+        </div>
+
+        <div class="form-group">
+          <label>Max Budget ($ USD)</label>
+          <input type="number" id="maxSpend" value="10.0" step="1.0">
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="rightsCheck" checked>
+            <span>I verify rights/permission for adaptation</span>
+          </label>
+        </div>
+
+        <button id="btnRun" class="btn-primary" onclick="startFullPipeline()">
+          <span>⚡ Generate All N Clips</span>
+        </button>
+
+        <div id="progressBox" class="progress-box">
+          <div style="display:flex; justify-content:space-between; font-size:12px;">
+            <strong id="progStage">PROCESSING</strong>
+            <span id="progPct">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="progFill" class="progress-bar-fill"></div>
+          </div>
+          <div id="progMsg" class="progress-text">Initializing pipeline...</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚙️ Architecture Guarantees</div>
+        <ul style="font-size:13px; color:var(--text-muted); padding-left:18px; line-height:1.7;">
+          <li><strong>Zero Gemini:</strong> Uses GPT-5.6 Sol via Trouter Cloud.</li>
+          <li><strong>No Native Video to Model:</strong> Extracted FFmpeg keyframes + faster-whisper ASR.</li>
+          <li><strong>OPUS_BATCH_BARRIER:</strong> Enforces all Opus projects terminal before multi-script fanout.</li>
+          <li><strong>One Clip One Script:</strong> Every clip receives a tailored documentary angle.</li>
+          <li><strong>ASMR Preservation:</strong> Audio ducking leaves mechanical sounds intact.</li>
+          <li><strong>Independent Folders:</strong> <code>output/clip_XXX/</code> containing final MP4, description, tags.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Right Column: Gallery -->
+    <div>
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between;">
+          <span>📦 Generated Publication Gallery</span>
+          <button class="btn-copy" onclick="loadClips()" style="padding:4px 10px;">🔄 Refresh</button>
+        </div>
+
+        <div id="gallery" class="clips-gallery">
+          <div style="color:var(--text-muted); font-size:14px; grid-column:span 2; padding:40px 0; text-align:center;">
+            No clips generated yet. Enter a YouTube URL and click <strong>Generate All N Clips</strong> to begin!
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeBatchId = null;
+
+    async function loadStats() {
+      try {
+        const res = await fetch("/api/v1/stats");
+        const data = await res.json();
+        document.getElementById("statReady").innerText = data.publish_ready_count;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function startFullPipeline() {
+      const url = document.getElementById("youtubeUrl").value.trim();
+      const srt = document.getElementById("localSrt").value.trim() || null;
+      const spend = parseFloat(document.getElementById("maxSpend").value) || 10.0;
+      const rights = document.getElementById("rightsCheck").checked ? "VERIFIED" : "UNRESOLVED";
+
+      if (!url) {
+        alert("Please enter a YouTube URL");
+        return;
+      }
+
+      document.getElementById("btnRun").disabled = true;
+      const pBox = document.getElementById("progressBox");
+      pBox.style.display = "block";
+
+      try {
+        const res = await fetch("/api/v1/pipeline/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            youtube_url: url,
+            local_srt_path: srt,
+            rights_status: rights,
+            max_spend_usd: spend
+          })
+        });
+        const data = await res.json();
+        pollJob(data.job_id);
+      } catch (e) {
+        alert("Error launching pipeline: " + e);
+        document.getElementById("btnRun").disabled = false;
+      }
+    }
+
+    async function pollJob(jobId) {
+      const fill = document.getElementById("progFill");
+      const stage = document.getElementById("progStage");
+      const pct = document.getElementById("progPct");
+      const msg = document.getElementById("progMsg");
+
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/v1/pipeline/jobs/${jobId}`);
+          const job = await res.json();
+
+          const progress = Math.round((job.progress || 0) * 100);
+          fill.style.width = progress + "%";
+          pct.innerText = progress + "%";
+          stage.innerText = job.stage || "RUNNING";
+          msg.innerText = job.message || "Working...";
+
+          if (job.status === "COMPLETED") {
+            clearInterval(interval);
+            msg.innerText = "All clips successfully created!";
+            document.getElementById("btnRun").disabled = false;
+            if (job.result && job.result.batch_id) {
+              activeBatchId = job.result.batch_id;
+              loadClips(activeBatchId);
+            }
+            loadStats();
+          } else if (job.status === "FAILED") {
+            clearInterval(interval);
+            msg.innerText = "Failed: " + job.error;
+            document.getElementById("btnRun").disabled = false;
+          }
+        } catch (e) {
+          console.error("Poll error:", e);
+        }
+      }, 2000);
+    }
+
+    async function loadClips(batchId) {
+      const gallery = document.getElementById("gallery");
+      gallery.innerHTML = "<div style='color:var(--text-muted); padding:20px;'>Loading clips...</div>";
+
+      try {
+        let endpoint = "/api/v1/opus-batches/latest/clips";
+        if (batchId) {
+          endpoint = `/api/v1/opus-batches/${batchId}/clips`;
+        }
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        const clips = data.clips || [];
+
+        if (clips.length === 0) {
+          gallery.innerHTML = "<div style='color:var(--text-muted); padding:20px;'>No clips found in this batch.</div>";
+          return;
+        }
+
+        gallery.innerHTML = "";
+        clips.forEach(c => {
+          const videoSrc = `/media/sources/${c.id.split(':')[0]}/${c.output_folder}/final.mp4`;
+          const tags = c.hashtags_json ? JSON.parse(c.hashtags_json).join(" ") : "";
+          const desc = c.description_en || "";
+          const title = c.pub_title || c.title_en || `Clip #${c.index_no}`;
+
+          const card = document.createElement("div");
+          card.className = "clip-card";
+          card.innerHTML = `
+            <div class="clip-video-box">
+              <video controls preload="metadata" src="${videoSrc}"></video>
+            </div>
+            <div class="clip-body">
+              <div class="clip-header">
+                <span class="clip-idx">Clip #${c.index_no}</span>
+                <span class="badge ${c.status === 'PUBLISH_READY' ? 'badge-ready' : 'badge-pending'}">${c.status}</span>
+              </div>
+              <div class="clip-title">${title}</div>
+              <div class="clip-angle">${c.duration_sec ? c.duration_sec.toFixed(1) + 's' : ''} • Preserved ASMR</div>
+              <div style="font-size:12px; color:var(--text-muted); margin-bottom:12px; flex-grow:1;">
+                ${desc.substring(0, 100)}...
+              </div>
+              <div class="copy-buttons">
+                <button class="btn-copy" onclick="copyText(this, '${escapeHtml(title)}')">📋 Title</button>
+                <button class="btn-copy" onclick="copyText(this, '${escapeHtml(tags)}')">#️⃣ Tags</button>
+                <button class="btn-copy-all btn-copy" onclick="copyText(this, '${escapeHtml(title + "\n\n" + desc + "\n\n" + tags)}')">✨ Copy 1-Click Caption</button>
+              </div>
+            </div>
+          `;
+          gallery.appendChild(card);
+        });
+      } catch (e) {
+        gallery.innerHTML = `<div style='color:var(--danger); padding:20px;'>Error loading clips: ${e}</div>`;
+      }
+    }
+
+    function copyText(btn, text) {
+      navigator.clipboard.writeText(text);
+      const original = btn.innerText;
+      btn.innerText = "✓ Copied!";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.innerText = original;
+        btn.classList.remove("copied");
+      }, 1500);
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/'/g, "\\'").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>
