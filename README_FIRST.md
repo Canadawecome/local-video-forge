@@ -12,7 +12,7 @@ Generated media, local databases, caches, virtual environments, and API secrets 
 ## Install on a new macOS/Linux machine
 
 ```bash
-git clone <PRIVATE_REPOSITORY_URL>
+git clone https://github.com/Canadawecome/local-video-forge.git
 cd local-video-forge
 chmod +x setup.sh
 ./setup.sh
