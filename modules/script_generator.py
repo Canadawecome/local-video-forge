@@ -257,13 +257,13 @@ class ScriptGenerator:
 
             # 1. Determine optimal time-distributed narration slots leaving room for mechanical ASMR
             slot_count = max(5, min(8, math.ceil(clip_duration / 13.0)))
-            first_slot = 1.5
-            last_slot_end = clip_duration - 2.0
+            first_slot = 1.2  # Lands precisely when the shock cut to the rusted BEFORE object hits
+            last_slot_end = clip_duration - 3.2  # Leaves >3.0s of pure mechanical ASMR payoff at the climax
             total_window = last_slot_end - first_slot
-            slot_len = round(0.70 * clip_duration / slot_count, 2)
+            slot_len = round(0.68 * clip_duration / slot_count, 2)
             gap = round((total_window - slot_count * slot_len) / (slot_count - 1), 2)
             if gap < 1.0:
-                slot_len = round(0.65 * clip_duration / slot_count, 2)
+                slot_len = round(0.62 * clip_duration / slot_count, 2)
                 gap = round((total_window - slot_count * slot_len) / (slot_count - 1), 2)
 
             slots = []
@@ -278,18 +278,29 @@ class ScriptGenerator:
                     "role": role,
                 })
 
-            # 2. Query Sol with visible actions and primary craft process
+            # 2. Query Sol with viral high-retention craftsman storytelling formula
             system_prompt = (
-                "You are an award-winning master craftsman and documentary director for American social media (TikTok / Reels / YouTube Shorts).\n"
-                "Create an engaging, authentic first-person craftsman voiceover ('I...') or observant craft narrative for this workshop restoration.\n"
-                "CRITICAL STORYTELLING RULES:\n"
-                "- TITLE: Create an accurate, high-CTR craft title that specifies the actual object being restored or made (NEVER use generic 'Artisan Blade' unless it is actually a knife blade).\n"
-                "- AUDIO-ACTION SYNCHRONIZATION: Read visible_workshop_actions carefully. Match your narration tone and rhythm to what is physically happening on screen.\n"
-                "- DYNAMIC PACING: Keep sentences rhythmic, punchy, and natural. Between 11 and 18 words per segment.\n"
-                "  * Hook (story_001): Punchy, intriguing opening describing the challenge or old rusted tool.\n"
-                "  * Process: Focus on the machine precision, metal shaving, speed, and tactile feel.\n"
-                "  * Payoff (last segment): Concluding reflection on the restored finish and precision.\n"
-                "- AUDIO DIRECTION: Recommend voice_gain_db (+4.0 to +8.5 dB) and bed_ducking_db (-2.0 to -5.0 dB) tailored to this video's ambient sound.\n"
+                "You are an elite master craftsman and viral documentary storyteller for TikTok, Instagram Reels, and YouTube Shorts.\n"
+                "Your objective is MAXIMAL AUDIENCE RETENTION, psychological curiosity, and authentic craftsman credibility.\n"
+                "Create an irresistible, first-person ('I...') narrative following this viral short-form formula:\n\n"
+                "1. THE VIRAL HOOK (story_001, 0-3s):\n"
+                "   - NEVER start with weak, procedural descriptions like 'That finished shine started here' or 'First I inspect'.\n"
+                "   - OPEN WITH AN IRRESISTIBLE CURIOSITY GAP, SKEPTICISM-DEFYING TRUTH, OR EXTREME STAKES:\n"
+                "     * Examples: 'Most people would have thrown this in the trash. I saw a century of history.', 'Buried under eighty years of rust... everyone said it was dead metal. They were wrong.', 'Found this 1920s relic fused solid with scale.'\n\n"
+                "2. STAKES, DANGER & MICRO-JEOPARDY (Process segments):\n"
+                "   - DO NOT just list recipe steps ('First I took it apart, then I ground it').\n"
+                "   - Inject friction, mechanical risks, and tactile epiphanies:\n"
+                "     * 'The adjustment screw was seized solid. One wrong turn with the torch, and century-old cast iron snaps forever.'\n"
+                "     * 'Watch the original 1920 factory stampings fight their way out from under the scale.'\n"
+                "     * 'We don't erase the battle scars; we rebuild factory tolerances.'\n"
+                "   - Use punchy, visceral sensory words: 'seized solid', 'razor tolerances', 'fused metal', 'mirror reflection', 'molten scale'.\n\n"
+                "3. CONCISE RHYTHM (10 to 14 words per segment):\n"
+                "   - Keep phrases rhythmic, confident, and natural. Between 10 and 14 words per segment so words breathe.\n\n"
+                "4. ASMR CLIMAX & PAYOFF (Final segment):\n"
+                "   - Celebrate the mechanical resurrection with deep craft pride.\n"
+                "   - KEEP IT UNDER 11 WORDS so the narration stops and the viewer hears the pure, crisp mechanical sound in the final 3 seconds.\n"
+                "   - Example: 'Listen to that ratchet click. Tight as 1912. Ready for another century.'\n\n"
+                "5. TITLE: High-CTR, curiosity-driven title specifying the exact antique tool/object.\n\n"
                 "Return STRICT JSON with keys:\n"
                 "- title_en (str)\n"
                 "- story_angle (str)\n"

@@ -367,27 +367,9 @@ class RestorationCutDirector:
         cur_out_ms = 0
         edit_counter = 1
 
-        # Hook Step 1: Show visibly damaged/rusty object (1.8s)
-        hook_before_dur = 1800
-        edits.append(EditDecision(
-            edit_id=f"e{edit_counter:03d}",
-            source_start_ms=before_shot.start_ms,
-            source_end_ms=before_shot.start_ms + hook_before_dur,
-            output_start_ms=cur_out_ms,
-            output_end_ms=cur_out_ms + hook_before_dur,
-            stage=RestorationStage.BEFORE,
-            same_object_id=before_shot.same_object_id,
-            purpose="Hook step 1: establish initial rusted/damaged state",
-            playback_speed=1.0,
-            reframe=ReframeROI(mode="smart_reframe", roi=[0.2, 0.1, 0.6, 0.8]),
-            asmr_priority="high",
-            narration_flex=NarrationFlex(safe_to_extend=False, min_duration_ms=1500, max_duration_ms=2200),
-        ))
-        cur_out_ms += hook_before_dur
-        edit_counter += 1
-
-        # Hook Step 2: Short finished-object tease ('ting' match cut, 1.5s)
-        hook_tease_dur = 1500
+        # Viral Hook Step 1: Flash-Forward Teaser of restored masterpiece (1.2s)
+        # Hits the viewer with immediate dopamine and visual proof of transformation
+        hook_tease_dur = 1200
         edits.append(EditDecision(
             edit_id=f"e{edit_counter:03d}",
             source_start_ms=after_shot.start_ms,
@@ -396,14 +378,34 @@ class RestorationCutDirector:
             output_end_ms=cur_out_ms + hook_tease_dur,
             stage=RestorationStage.AFTER_REVEAL,
             same_object_id=after_shot.same_object_id,
-            purpose="Hook step 2: flash tease of restored result ('ting' cut)",
+            purpose="Viral hook step 1: immediate flash-forward tease of pristine restored masterpiece",
             playback_speed=1.0,
             reframe=ReframeROI(mode="smart_reframe", roi=[0.2, 0.1, 0.6, 0.8]),
-            asmr_priority="medium",
-            narration_flex=NarrationFlex(safe_to_extend=False, min_duration_ms=1200, max_duration_ms=1800),
+            asmr_priority="high",
+            narration_flex=NarrationFlex(safe_to_extend=False, min_duration_ms=1000, max_duration_ms=1400),
         ))
-        effects.append(EffectItem(type="matched_flash_cut", between=[edits[0].edit_id, edits[1].edit_id], duration_ms=120))
         cur_out_ms += hook_tease_dur
+        edit_counter += 1
+
+        # Viral Hook Step 2: Hard contrast cut back to the heavily corroded relic (1.6s)
+        # Forces the viewer to ask: 'How on earth did THAT turn into THAT?!'
+        hook_before_dur = 1600
+        edits.append(EditDecision(
+            edit_id=f"e{edit_counter:03d}",
+            source_start_ms=before_shot.start_ms,
+            source_end_ms=before_shot.start_ms + hook_before_dur,
+            output_start_ms=cur_out_ms,
+            output_end_ms=cur_out_ms + hook_before_dur,
+            stage=RestorationStage.BEFORE,
+            same_object_id=before_shot.same_object_id,
+            purpose="Viral hook step 2: shock cut to corroded relic establishing extreme contrast",
+            playback_speed=1.0,
+            reframe=ReframeROI(mode="smart_reframe", roi=[0.2, 0.1, 0.6, 0.8]),
+            asmr_priority="high",
+            narration_flex=NarrationFlex(safe_to_extend=False, min_duration_ms=1400, max_duration_ms=1800),
+        ))
+        effects.append(EffectItem(type="matched_flash_cut", between=[edits[0].edit_id, edits[1].edit_id], duration_ms=100))
+        cur_out_ms += hook_before_dur
         edit_counter += 1
 
         # Body Progression: Select core transformation stages (excluding BEFORE and AFTER_REVEAL)

@@ -350,19 +350,11 @@ class PipelineOrchestrator:
         provider_clip_id = "clip_001"
         canonical_clip_uid = f"{source_id}:{provider_project_id}:{provider_clip_id}"
 
-        # Copy or link visual_cut.mp4 as original_opus.mp4 and clip.mp4
+        # Copy visual_cut.mp4 as original_opus.mp4 and clip.mp4
         dest_clip = clip_folder / "clip.mp4"
         dest_orig = clip_folder / "original_opus.mp4"
-        if not dest_clip.exists():
-            try:
-                dest_clip.symlink_to(visual_cut_mp4)
-            except OSError:
-                shutil.copy2(visual_cut_mp4, dest_clip)
-        if not dest_orig.exists():
-            try:
-                dest_orig.symlink_to(visual_cut_mp4)
-            except OSError:
-                shutil.copy2(visual_cut_mp4, dest_orig)
+        shutil.copy2(visual_cut_mp4, dest_clip)
+        shutil.copy2(visual_cut_mp4, dest_orig)
 
         # Copy audio asmr
         audio_dir = clip_folder / "audio"
@@ -370,11 +362,9 @@ class PipelineOrchestrator:
         src_asmr = cut_dir / "source_asmr.wav"
         if src_asmr.exists():
             clean_stem = audio_dir / "workshop_clean.wav"
-            if not clean_stem.exists():
-                shutil.copy2(src_asmr, clean_stem)
             res_stem = audio_dir / "residual_workshop.wav"
-            if not res_stem.exists():
-                shutil.copy2(src_asmr, res_stem)
+            shutil.copy2(src_asmr, clean_stem)
+            shutil.copy2(src_asmr, res_stem)
 
         # Read story map and build inspection.json
         story_map_file = cut_dir / "story_map.json"

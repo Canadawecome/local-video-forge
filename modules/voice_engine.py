@@ -268,12 +268,22 @@ class VoiceEngine:
             mp3_path = output_folder / seg.audio_path if seg.audio_path else tts_dir / f"{seg.id}.mp3"
             align_path = mp3_path.with_suffix(".alignment.json")
 
+            existing_matches = False
+            norm = lambda s: re.sub(r"[^\w\s]", "", s).strip().casefold()
             if mp3_path.exists() and align_path.exists():
-                logger.info(f"Using existing ElevenLabs synthesis for {seg.id}: \"{seg.text_en}\"")
-                with open(align_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                alignment = data.get("normalized_alignment") or data.get("alignment") or data
-            else:
+                try:
+                    with open(align_path, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    alignment = data.get("normalized_alignment") or data.get("alignment") or data
+                    chars = alignment.get("characters", [])
+                    spoken = "".join(chars)
+                    if norm(spoken) == norm(seg.text_en):
+                        existing_matches = True
+                        logger.info(f"Using existing ElevenLabs synthesis for {seg.id}: \"{seg.text_en}\"")
+                except Exception:
+                    existing_matches = False
+
+            if not existing_matches:
                 logger.info(f"Synthesizing {seg.id}: \"{seg.text_en}\" ({seg.start:.1f}s - {seg.end:.1f}s)...")
 
                 url = f"https://api.elevenlabs.io/v1/text-to-speech/{self.voice_id}/with-timestamps"
