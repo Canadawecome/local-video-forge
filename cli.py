@@ -35,6 +35,7 @@ def main():
     run_parser.add_argument("--max-spend", type=float, default=10.0, help="Max spend guard in USD")
     run_parser.add_argument("--time-range", nargs=2, type=float, default=None, metavar=("START", "END"), help="Targeted start and end time in seconds (e.g. --time-range 60 180) to only process that window and save OpusClip credits")
     run_parser.add_argument("--video-range", nargs=2, type=float, default=None, metavar=("START", "END"), help="Alias for --time-range")
+    run_parser.add_argument("--opus-model", default="ClipAnything", help="OpusClip model (default: ClipAnything, optimized for craft/low-speech videos)")
 
     # Command: scout
     scout_parser = subparsers.add_parser("scout", help="Run source ingest & GPT-5.6 Sol text scout")
@@ -65,6 +66,7 @@ def main():
             max_spend_usd=args.max_spend,
             time_range=args.time_range,
             video_range=args.video_range,
+            opus_model=args.opus_model,
         )
         print("\n" + "="*60)
         print("PIPELINE COMPLETE!")

@@ -36,6 +36,7 @@ class Config:
     # OpusClip
     OPUSCLIP_API_KEY: str = os.getenv("OPUSCLIP_API_KEY", "")
     OPUSCLIP_BASE_URL: str = os.getenv("OPUSCLIP_BASE_URL", "https://api.opus.pro/api").rstrip("/")
+    OPUSCLIP_MODEL: str = os.getenv("OPUSCLIP_MODEL", "ClipAnything")  # Optimized for low-speech craft/ASMR videos
     
     # ElevenLabs
     ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")

@@ -107,13 +107,16 @@ class OpusManager:
         time_range: tuple[float, float] | list[float] | dict[str, float] | None = None,
         video_range: tuple[float, float] | list[float] | None = None,
         time_ranges: list[list[float]] | list[tuple[float, float]] | None = None,
+        model: str | None = None,
     ) -> OpusProjectRecord:
         """Submits an OpusClip project for the whole video or a targeted candidate window.
         
         Passing time_range / video_range / time_ranges restricts OpusClip AI analysis to
         only that window, consuming only 1-3 credits instead of full-video credits.
+        Uses model='ClipAnything' by default, which is specialized for craft, non-speech, and visual ASMR action.
         """
         project_record_id = f"opus_p_{int(time.time() * 1000)}"
+        selected_model = model or getattr(Config, "OPUSCLIP_MODEL", "ClipAnything")
 
         # Resolve target range to restrict OpusClip processing and conserve credits
         parsed_range: tuple[float, float] | None = None
@@ -139,7 +142,7 @@ class OpusManager:
                     parsed_range = (s, e)
 
         range_sig = f":range_{parsed_range[0]:.1f}_{parsed_range[1]:.1f}" if parsed_range else ""
-        request_hash = hashlib.sha256(f"{youtube_url}:{custom_prompt}{range_sig}".encode()).hexdigest()
+        request_hash = hashlib.sha256(f"{youtube_url}:{custom_prompt}:{selected_model}{range_sig}".encode()).hexdigest()
         
         # If API key is not configured, register in MOCK / LOCAL mode
         if not self.api_key:
@@ -166,7 +169,7 @@ class OpusManager:
         # Call real OpusClip API
         url = f"{self.base_url}/clip-projects"
         curation_pref: dict[str, Any] = {
-            "model": "ClipAnything",
+            "model": selected_model,
             "clipDurations": [[60, 90]],
             "customPrompt": custom_prompt,
         }

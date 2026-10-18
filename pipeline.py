@@ -59,6 +59,7 @@ class PipelineOrchestrator:
         time_range: tuple[float, float] | list[float] | None = None,
         video_range: tuple[float, float] | list[float] | None = None,
         time_ranges: list[list[float]] | None = None,
+        opus_model: str = "ClipAnything",
         progress_callback: Callable[[str, float, str], None] | None = None,
     ) -> BatchManifestV25:
         """Runs the entire end-to-end pipeline with strict contract enforcement."""
@@ -121,6 +122,7 @@ class PipelineOrchestrator:
                     candidate_window_id=effective_window_id,
                     time_range=effective_range,
                     time_ranges=time_ranges,
+                    model=opus_model,
                 )
                 self.opus.poll_and_download_clips(batch_id, source_id, proj.project_id)
 

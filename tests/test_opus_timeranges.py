@@ -29,6 +29,8 @@ def test_submit_opus_project_with_time_range():
         )
 
     assert rec.project_id == "proj_range_123"
+    # Verify ClipAnything model is used
+    assert captured_payload["curationPref"]["model"] == "ClipAnything"
     # Verify targeted parameters are injected
     assert captured_payload["videoRange"] == [45.5, 120.0]
     assert captured_payload["timeRanges"] == [[45.5, 120.0]]
@@ -36,6 +38,29 @@ def test_submit_opus_project_with_time_range():
     assert captured_payload["curationPref"]["range"] == {"startSec": 45.5, "endSec": 120.0}
     assert captured_payload["curationPref"]["videoRange"] == [45.5, 120.0]
     assert captured_payload["curationPref"]["timeRanges"] == [[45.5, 120.0]]
+
+
+def test_submit_opus_project_defaults_to_clipanything():
+    mgr = OpusManager(api_key="mock_key", base_url="https://api.opus.pro/api")
+    captured_payload = {}
+    batch_id = mgr.create_batch("src_test_model", "https://youtube.com/watch?v=mock123")
+
+    def mock_urlopen(req, timeout=30):
+        nonlocal captured_payload
+        captured_payload = json.loads(req.data.decode("utf-8"))
+        mock_resp = MagicMock()
+        mock_resp.__enter__.return_value.read.return_value = json.dumps({"id": "proj_model_1"}).encode("utf-8")
+        return mock_resp
+
+    with patch("urllib.request.urlopen", side_effect=mock_urlopen):
+        rec = mgr.submit_opus_project(
+            batch_id=batch_id,
+            youtube_url="https://youtube.com/watch?v=mock123",
+            custom_prompt="Find craft moments",
+        )
+
+    assert rec.project_id == "proj_model_1"
+    assert captured_payload["curationPref"]["model"] == "ClipAnything"
 
 
 def test_submit_opus_project_with_video_range_alias():
