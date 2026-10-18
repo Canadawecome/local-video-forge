@@ -9,6 +9,7 @@ import base64
 import json
 import logging
 import math
+import shutil
 import subprocess
 import time
 import urllib.request
@@ -252,7 +253,10 @@ class VoiceEngine:
         if not clip_path.exists():
             orig = output_folder / "original_opus.mp4"
             if orig.exists():
-                clip_path.symlink_to(orig)
+                try:
+                    clip_path.symlink_to(orig)
+                except OSError:
+                    shutil.copy2(orig, clip_path)
             else:
                 raise FileNotFoundError(f"Missing clip.mp4 in {output_folder}")
 
@@ -335,6 +339,23 @@ class VoiceEngine:
         plan.validate_duration(clip_duration)
         plan_path.write_text(plan.model_dump_json(indent=2), encoding="utf-8")
         logger.info(f"Saved synchronized audio_plan.json for {clip_uid}")
+
+        story_plan_path = output_folder / "story_plan.json"
+        if story_plan_path.exists():
+            try:
+                s_data = json.loads(story_plan_path.read_text(encoding="utf-8"))
+                v_map = {v.id: v for v in plan.voice_segments}
+                for n in s_data.get("narration_segments", []):
+                    if n.get("id") in v_map:
+                        v = v_map[n["id"]]
+                        n["text_en"] = v.text_en
+                        n["start"] = v.start
+                        n["end"] = v.end
+                        n["audio_path"] = f"audio/tts/{v.id}.mp3"
+                story_plan_path.write_text(json.dumps(s_data, indent=2), encoding="utf-8")
+                logger.info(f"Synchronized story_plan.json with synthesized TTS audio for {clip_uid}")
+            except Exception as e:
+                logger.warning(f"Could not synchronize story_plan.json: {e}")
 
         first_seg = plan.voice_segments[0]
         rec = ClipVoiceRecord(

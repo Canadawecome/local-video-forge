@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -690,7 +691,10 @@ class RenderEngine:
         if not clip_path.exists():
             orig = output_folder / "original_opus.mp4"
             if orig.exists():
-                clip_path.symlink_to(orig)
+                try:
+                    clip_path.symlink_to(orig)
+                except OSError:
+                    shutil.copy2(orig, clip_path)
             else:
                 raise FileNotFoundError(f"Missing clip.mp4 in {output_folder}")
 
@@ -829,12 +833,35 @@ class RenderEngine:
         if not clip_path.exists():
             orig = output_folder / "original_opus.mp4"
             if orig.exists():
-                clip_path.symlink_to(orig)
+                try:
+                    clip_path.symlink_to(orig)
+                except OSError:
+                    shutil.copy2(orig, clip_path)
             else:
                 raise FileNotFoundError(f"Missing clip.mp4 in {output_folder}")
 
         story_plan_path = output_folder / "story_plan.json"
         audio_plan_path = output_folder / "audio_plan.json"
+
+        if story_plan_path.exists() and audio_plan_path.exists():
+            try:
+                from hybrid_audio_contracts_v2_7 import HybridClipPlan
+                a_plan = HybridClipPlan.model_validate_json(audio_plan_path.read_text(encoding="utf-8"))
+                a_map = {s.id: s for s in a_plan.voice_segments}
+                plan_data = json.loads(story_plan_path.read_text(encoding="utf-8"))
+                for n in plan_data.get("narration_segments", []):
+                    if n.get("id") in a_map:
+                        matched = a_map[n["id"]]
+                        n["text_en"] = matched.text_en
+                        n["start"] = matched.start
+                        n["end"] = matched.end
+                        n["audio_path"] = f"audio/tts/{matched.id}.mp3"
+                if plan_data.get("schema_version") == "3.0" or plan_data.get("mode") == "ORIGINAL_COMMENTARY_ASMR":
+                    plan_data["schema_version"] = "3.1"
+                    plan_data["mode"] = "ENGLISH_STORYTELLING_WITH_CLEAN_ASMR"
+                story_plan_path.write_text(json.dumps(plan_data, indent=2), encoding="utf-8")
+            except Exception as e:
+                logger.warning(f"Could not sync audio_plan text to story_plan: {e}")
 
         if story_plan_path.exists():
             plan_data = json.loads(story_plan_path.read_text(encoding="utf-8"))

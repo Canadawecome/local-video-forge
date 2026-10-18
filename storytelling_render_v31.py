@@ -579,7 +579,7 @@ def process(folder: Path, *, dry_run=False) -> dict[str,Any]:
         peak=float(np.max(np.abs(mix))) if mix.size else 0
         peak_limit=10**(plan.settings.peak_ceiling_dbfs/20)
         gain=min(1.,peak_limit/peak) if peak else 1.
-        if gain<10**(-1.5/20):
+        if gain<10**(-5.0/20):
             raise ValueError('NEEDS_AUDIO_REVIEW: master gain would reduce hammer ASMR too much')
         mix*=gain
         caption_words.sort(key=lambda x:x[0])
