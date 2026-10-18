@@ -196,6 +196,77 @@ class RestorationCutDirector:
         logger.info(f"=== RESTORATION CUT DIRECTOR v4.1 COMPLETE: {rendered_cut.name} ({qa_report.actual_duration_sec:.1f}s, Verdict: {qa_report.verdict}) ===")
         return plan
 
+    def _detect_clean_content_bounds(
+        self,
+        source_path: Path,
+        dur_sec: float,
+        out_folder: Path,
+    ) -> tuple[float, float]:
+        """Detects and trims bright white intros, channel bumpers, or solid black screens."""
+        content_start = 0.0
+        probe_img = out_folder / "probe_bound.jpg"
+        
+        # Test candidate timestamps from beginning (0 to 15s)
+        check_points = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 12.0]
+        for s in check_points:
+            if s >= dur_sec * 0.15:
+                break
+            try:
+                cmd = [
+                    "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-ss", str(s), "-i", str(source_path),
+                    "-frames:v", "1", str(probe_img)
+                ]
+                subprocess.run(cmd, check=True)
+                if probe_img.exists():
+                    from PIL import Image
+                    import numpy as np
+                    arr = np.array(Image.open(probe_img))
+                    mean_v = float(arr.mean())
+                    std_v = float(arr.std())
+                    # Skip solid white (mean > 200), solid black (mean < 20), or low-variance bumpers (std < 25)
+                    if mean_v > 200 or mean_v < 20 or std_v < 25:
+                        continue
+                    content_start = s
+                    break
+            except Exception:
+                pass
+
+        content_end = dur_sec
+        # Test candidate timestamps from end (last 20s)
+        end_points = [dur_sec - 1.0, dur_sec - 3.0, dur_sec - 6.0, dur_sec - 10.0, dur_sec - 15.0]
+        for s in end_points:
+            if s <= dur_sec * 0.85:
+                break
+            try:
+                cmd = [
+                    "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                    "-ss", str(s), "-i", str(source_path),
+                    "-frames:v", "1", str(probe_img)
+                ]
+                subprocess.run(cmd, check=True)
+                if probe_img.exists():
+                    from PIL import Image
+                    import numpy as np
+                    arr = np.array(Image.open(probe_img))
+                    mean_v = float(arr.mean())
+                    std_v = float(arr.std())
+                    if mean_v < 18 or (mean_v > 230 and std_v < 20):
+                        continue
+                    content_end = s
+                    break
+            except Exception:
+                pass
+
+        if probe_img.exists():
+            try:
+                probe_img.unlink()
+            except OSError:
+                pass
+
+        logger.info(f"Clean content boundary: {content_start:.1f}s to {content_end:.1f}s (trimmed {content_start:.1f}s intro/white screen, {dur_sec - content_end:.1f}s outro)")
+        return content_start, content_end
+
     def _index_candidate_shots(
         self,
         source_path: Path,
@@ -213,14 +284,9 @@ class RestorationCutDirector:
             logger.warning(f"Source duration ({dur_sec:.1f}s) is less than minimum 75s required.")
             return shots
 
-        # Divide source into structured stage regions (or analyze via scene detection)
-        # Typical restoration video arc:
-        # 0.0 - 0.08: BEFORE (damaged/rusted initial state)
-        # 0.08 - 0.15: INSPECTION / DISASSEMBLY
-        # 0.15 - 0.40: RUST_REMOVAL / CLEANING / GRINDING
-        # 0.40 - 0.65: HEATING_FORGING / REPAIR / MACHINING
-        # 0.65 - 0.85: POLISHING / PAINT_FINISH / ASSEMBLY
-        # 0.85 - 1.00: TEST / AFTER_REVEAL (completed pristine result)
+        # Trim bright white channel intro cards and solid black outro screens
+        clean_start, clean_end = self._detect_clean_content_bounds(source_path, dur_sec, out_folder)
+        effective_dur = clean_end - clean_start
 
         stage_partitions = [
             (RestorationStage.BEFORE, 0.00, 0.08, "Initial rusted, corroded, damaged component inspection", "obj_1", "machine"),
@@ -238,8 +304,8 @@ class RestorationCutDirector:
 
         shot_idx = 1
         for stage, rel_s, rel_e, notes, obj_id, sound in stage_partitions:
-            s_sec = rel_s * dur_sec
-            e_sec = rel_e * dur_sec
+            s_sec = clean_start + rel_s * effective_dur
+            e_sec = clean_start + rel_e * effective_dur
             span = e_sec - s_sec
 
             # Create 1 to 3 dynamic shots within this stage
@@ -404,7 +470,7 @@ class RestorationCutDirector:
             asmr_priority="high",
             narration_flex=NarrationFlex(safe_to_extend=False, min_duration_ms=1400, max_duration_ms=1800),
         ))
-        effects.append(EffectItem(type="matched_flash_cut", between=[edits[0].edit_id, edits[1].edit_id], duration_ms=100))
+        effects.append(EffectItem(type="hard_cut", between=[edits[0].edit_id, edits[1].edit_id], duration_ms=0))
         cur_out_ms += hook_before_dur
         edit_counter += 1
 
