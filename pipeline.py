@@ -56,6 +56,9 @@ class PipelineOrchestrator:
         opus_project_id: str | None = None,
         rights_status: str = "VERIFIED",
         max_spend_usd: float = 10.0,
+        time_range: tuple[float, float] | list[float] | None = None,
+        video_range: tuple[float, float] | list[float] | None = None,
+        time_ranges: list[list[float]] | None = None,
         progress_callback: Callable[[str, float, str], None] | None = None,
     ) -> BatchManifestV25:
         """Runs the entire end-to-end pipeline with strict contract enforcement."""
@@ -104,10 +107,20 @@ class PipelineOrchestrator:
                 logger.info(f"Found sample craft video at {sample_clip}, importing as candidate clip...")
                 self.opus.import_local_clips(batch_id, source_id, [sample_clip])
             else:
+                effective_range = time_range or video_range
+                effective_window_id = None
+                if not effective_range and not time_ranges and getattr(scout_plan, 'candidate_windows', None):
+                    cw = scout_plan.candidate_windows[0]
+                    effective_range = (cw.start_sec, cw.end_sec)
+                    effective_window_id = cw.window_id
+
                 proj = self.opus.submit_opus_project(
                     batch_id=batch_id,
                     youtube_url=youtube_url,
                     custom_prompt=scout_plan.global_opus_prompt_en,
+                    candidate_window_id=effective_window_id,
+                    time_range=effective_range,
+                    time_ranges=time_ranges,
                 )
                 self.opus.poll_and_download_clips(batch_id, source_id, proj.project_id)
 

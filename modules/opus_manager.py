@@ -104,9 +104,42 @@ class OpusManager:
         youtube_url: str,
         custom_prompt: str,
         candidate_window_id: str | None = None,
+        time_range: tuple[float, float] | list[float] | dict[str, float] | None = None,
+        video_range: tuple[float, float] | list[float] | None = None,
+        time_ranges: list[list[float]] | list[tuple[float, float]] | None = None,
     ) -> OpusProjectRecord:
-        """Submits an OpusClip project for the whole video or candidate window."""
+        """Submits an OpusClip project for the whole video or a targeted candidate window.
+        
+        Passing time_range / video_range / time_ranges restricts OpusClip AI analysis to
+        only that window, consuming only 1-3 credits instead of full-video credits.
+        """
         project_record_id = f"opus_p_{int(time.time() * 1000)}"
+
+        # Resolve target range to restrict OpusClip processing and conserve credits
+        parsed_range: tuple[float, float] | None = None
+        if time_range is not None:
+            if isinstance(time_range, dict):
+                s = float(time_range.get("startSec", time_range.get("start", 0.0)))
+                e = float(time_range.get("endSec", time_range.get("end", 0.0)))
+                if e > s >= 0:
+                    parsed_range = (s, e)
+            elif isinstance(time_range, (list, tuple)) and len(time_range) >= 2:
+                s, e = float(time_range[0]), float(time_range[1])
+                if e > s >= 0:
+                    parsed_range = (s, e)
+        elif video_range is not None and isinstance(video_range, (list, tuple)) and len(video_range) >= 2:
+            s, e = float(video_range[0]), float(video_range[1])
+            if e > s >= 0:
+                parsed_range = (s, e)
+        elif time_ranges is not None and len(time_ranges) > 0:
+            first_r = time_ranges[0]
+            if isinstance(first_r, (list, tuple)) and len(first_r) >= 2:
+                s, e = float(first_r[0]), float(first_r[1])
+                if e > s >= 0:
+                    parsed_range = (s, e)
+
+        range_sig = f":range_{parsed_range[0]:.1f}_{parsed_range[1]:.1f}" if parsed_range else ""
+        request_hash = hashlib.sha256(f"{youtube_url}:{custom_prompt}{range_sig}".encode()).hexdigest()
         
         # If API key is not configured, register in MOCK / LOCAL mode
         if not self.api_key:
@@ -115,29 +148,49 @@ class OpusManager:
                 project_id=project_record_id,
                 status=OpusProjectState.SUCCEEDED,
                 candidate_window_id=candidate_window_id,
-                request_hash=hashlib.sha256(f"{youtube_url}:{custom_prompt}".encode()).hexdigest(),
+                request_hash=request_hash,
             )
             with get_connection() as conn:
                 conn.execute(
                     """INSERT INTO opus_projects 
                     (id, batch_id, provider_project_id, window_id, status, request_hash)
-                    VALUES (?, ?, ?, ?, ?, ?)""",
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(id) DO UPDATE SET
+                    batch_id=excluded.batch_id,
+                    status=excluded.status,
+                    request_hash=excluded.request_hash""",
                     (rec.project_id, batch_id, rec.project_id, candidate_window_id, rec.status.value, rec.request_hash),
                 )
             return rec
 
         # Call real OpusClip API
         url = f"{self.base_url}/clip-projects"
-        payload = {
+        curation_pref: dict[str, Any] = {
+            "model": "ClipAnything",
+            "clipDurations": [[60, 90]],
+            "customPrompt": custom_prompt,
+        }
+        payload: dict[str, Any] = {
             "videoUrl": youtube_url,
-            "curationPref": {
-                "model": "ClipAnything",
-                "clipDurations": [[60, 90]],
-                "customPrompt": custom_prompt,
-            },
+            "curationPref": curation_pref,
             "renderPref": {"layoutAspectRatio": "portrait"},
             "importPreference": {"sourceLang": "de"},
         }
+
+        # Inject targeted time range parameters to only process window & consume 1-3 credits
+        if parsed_range:
+            start_s, end_s = round(parsed_range[0], 2), round(parsed_range[1], 2)
+            curation_pref["range"] = {"startSec": start_s, "endSec": end_s}
+            curation_pref["videoRange"] = [start_s, end_s]
+            curation_pref["timeRanges"] = [[start_s, end_s]]
+            payload["videoRange"] = [start_s, end_s]
+            payload["timeRanges"] = [[start_s, end_s]]
+            payload["timeRange"] = {"startSec": start_s, "endSec": end_s}
+            logger.info(
+                f"OpusClip targeted processing enabled: range [{start_s}s -> {end_s}s] "
+                f"(window: {end_s - start_s:.1f}s). Conserving credits: consumes ~1-3 credits instead of full video."
+            )
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -157,13 +210,17 @@ class OpusManager:
             project_id=provider_proj_id,
             status=OpusProjectState.RUNNING,
             candidate_window_id=candidate_window_id,
-            request_hash=hashlib.sha256(f"{youtube_url}:{custom_prompt}".encode()).hexdigest(),
+            request_hash=request_hash,
         )
         with get_connection() as conn:
             conn.execute(
                 """INSERT INTO opus_projects 
                 (id, batch_id, provider_project_id, window_id, status, request_hash)
-                VALUES (?, ?, ?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                batch_id=excluded.batch_id,
+                status=excluded.status,
+                request_hash=excluded.request_hash""",
                 (rec.project_id, batch_id, rec.project_id, candidate_window_id, rec.status.value, rec.request_hash),
             )
         return rec

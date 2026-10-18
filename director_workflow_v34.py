@@ -52,20 +52,31 @@ def opus_jobs(plan_path:Path, evidence_path:Path, video_url:str) -> dict:
         avail=c.end_sec-c.start_sec
         hi=min(c.desired_clip_max_sec, max(10,int(avail)))
         lo=min(c.desired_clip_min_sec,hi)
-        payload={'videoUrl':video_url,
-          'curationPref':{'model':'ClipAnything',
-            'range':{'startSec':round(c.start_sec,3),'endSec':round(c.end_sec,3)},
-            'clipDurations':[[lo,hi]],
-            'genre':'Blacksmith / restoration / workshop craft',
-            'customPrompt':(
-              f'Prioritize the visible REAL workshop action: {"; ".join(c.actions)}. '
-              f'The most compelling hook action occurs around source time {c.hook_at_sec:.1f}s: {c.hook_visual}. '
-              'Make a coherent vertical craft-process clip with an opening visual hook. '
-              'Avoid static talking-head passages, fabricated steps, flashy transitions, '
-              'added music and unnecessary on-screen captions where controls permit. '
-              'Preserve natural chronological causality; retain usable source audio for later separation. '
-              f'Visual storyline: {c.narrative_arc}.')},
-          'renderPref':{'layoutAspectRatio':'portrait'}}
+        win = [round(c.start_sec, 3), round(c.end_sec, 3)]
+        payload = {
+            'videoUrl': video_url,
+            'videoRange': win,
+            'timeRanges': [win],
+            'timeRange': {'startSec': win[0], 'endSec': win[1]},
+            'curationPref': {
+                'model': 'ClipAnything',
+                'range': {'startSec': win[0], 'endSec': win[1]},
+                'videoRange': win,
+                'timeRanges': [win],
+                'clipDurations': [[lo, hi]],
+                'genre': 'Blacksmith / restoration / workshop craft',
+                'customPrompt': (
+                    f'Prioritize the visible REAL workshop action: {"; ".join(c.actions)}. '
+                    f'The most compelling hook action occurs around source time {c.hook_at_sec:.1f}s: {c.hook_visual}. '
+                    'Make a coherent vertical craft-process clip with an opening visual hook. '
+                    'Avoid static talking-head passages, fabricated steps, flashy transitions, '
+                    'added music and unnecessary on-screen captions where controls permit. '
+                    'Preserve natural chronological causality; retain usable source audio for later separation. '
+                    f'Visual storyline: {c.narrative_arc}.'
+                )
+            },
+            'renderPref': {'layoutAspectRatio': 'portrait'}
+        }
         jobs.append({'candidate_id':c.id,'priority_score':c.potential_score,
                      'source_sha256':plan.source_sha256,
                      'source_window':[c.start_sec,c.end_sec],

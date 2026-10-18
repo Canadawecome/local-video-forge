@@ -33,6 +33,8 @@ def main():
     run_parser.add_argument("--clips", nargs="*", default=None, help="Paths to local MP4 clips to import")
     run_parser.add_argument("--opus-project-id", default=None, help="Existing OpusClip project ID to download clips from")
     run_parser.add_argument("--max-spend", type=float, default=10.0, help="Max spend guard in USD")
+    run_parser.add_argument("--time-range", nargs=2, type=float, default=None, metavar=("START", "END"), help="Targeted start and end time in seconds (e.g. --time-range 60 180) to only process that window and save OpusClip credits")
+    run_parser.add_argument("--video-range", nargs=2, type=float, default=None, metavar=("START", "END"), help="Alias for --time-range")
 
     # Command: scout
     scout_parser = subparsers.add_parser("scout", help="Run source ingest & GPT-5.6 Sol text scout")
@@ -61,6 +63,8 @@ def main():
             local_clip_paths=args.clips,
             opus_project_id=args.opus_project_id,
             max_spend_usd=args.max_spend,
+            time_range=args.time_range,
+            video_range=args.video_range,
         )
         print("\n" + "="*60)
         print("PIPELINE COMPLETE!")
