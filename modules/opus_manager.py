@@ -170,14 +170,14 @@ class OpusManager:
         url = f"{self.base_url}/clip-projects"
         curation_pref: dict[str, Any] = {
             "model": selected_model,
-            "clipDurations": [[60, 90]],
+            "clipDurations": [[70, 95]],
             "customPrompt": custom_prompt,
         }
         payload: dict[str, Any] = {
             "videoUrl": youtube_url,
             "curationPref": curation_pref,
             "renderPref": {"layoutAspectRatio": "portrait"},
-            "importPreference": {"sourceLang": "de"},
+            "importPreference": {"sourceLang": "auto"},
         }
 
         # Inject targeted time range parameters to only process window & consume 1-3 credits
@@ -324,16 +324,24 @@ class OpusManager:
                 "title": item.get("title") or f"Clip {idx}",
             }
 
+            dur = float(probe.get("duration", 0.0))
+            is_valid_duration = dur > 65.0
+            if not is_valid_duration:
+                logger.warning(
+                    f"OpusClip {clip_uid} duration {dur:.2f}s <= 65.0s. "
+                    f"Strictly rejecting per duration policy (>65.0s required)."
+                )
+
             rec = ClipRecord(
                 clip_uid=clip_uid,
                 index_no=idx,
                 provider_project_id=project_id,
                 provider_clip_id=clip_id,
-                status=ClipState.ASSET_DOWNLOADED,
+                status=ClipState.ASSET_DOWNLOADED if is_valid_duration else ClipState.REJECTED_QC,
                 folder=out_folder_rel,
                 narration_mode=NarrationMode.ORIGINAL_COMMENTARY,
                 rights_state=RightsState.VERIFIED,
-                accepted=True,
+                accepted=is_valid_duration,
             )
 
             with get_connection() as conn:
@@ -436,16 +444,24 @@ class OpusManager:
                 "viral_score": 85.0,
             }
 
+            dur = float(probe.get("duration", 0.0))
+            is_valid_duration = dur > 65.0
+            if not is_valid_duration:
+                logger.warning(
+                    f"Local clip {clip_uid} duration {dur:.2f}s <= 65.0s. "
+                    f"Strictly rejecting per duration policy (>65.0s required)."
+                )
+
             rec = ClipRecord(
                 clip_uid=clip_uid,
                 index_no=idx,
                 provider_project_id=project_id,
                 provider_clip_id=clip_id,
-                status=ClipState.ASSET_DOWNLOADED,
+                status=ClipState.ASSET_DOWNLOADED if is_valid_duration else ClipState.REJECTED_QC,
                 folder=out_folder_rel,
                 narration_mode=NarrationMode.ORIGINAL_COMMENTARY,
                 rights_state=RightsState.VERIFIED,
-                accepted=True,
+                accepted=is_valid_duration,
             )
 
             # Persist to DB

@@ -25,7 +25,7 @@ from local_video_forge_batch_contracts_v2_5 import (
     RightsState,
 )
 from modules.clip_inspector import ClipInspector
-from modules.opus_manager import OpusManager
+from modules.opus_manager import OpusManager, probe_video
 from modules.publication_pack import PublicationPackManager
 from modules.render_engine import RenderEngine
 from modules.script_generator import ScriptGenerator
@@ -142,9 +142,23 @@ class PipelineOrchestrator:
         final_pass_count = 0
 
         for i, clip in enumerate(manifest.discovered_clips, start=1):
+            if not clip.accepted:
+                logger.warning(f"Clip {i}/{n_clips} ({clip.clip_uid}) not accepted (duration <= 65s or rejected). Skipping fan-out.")
+                continue
+
             clip_folder = source_dir / clip.folder
             clip_folder.mkdir(parents=True, exist_ok=True)
             clip_mp4 = clip_folder / "original_opus.mp4"
+
+            if clip_mp4.exists():
+                probe = probe_video(clip_mp4)
+                if probe.get("duration", 0.0) <= 65.0:
+                    logger.warning(
+                        f"Clip {i}/{n_clips} ({clip.clip_uid}) duration {probe.get('duration'):.2f}s <= 65.0s. "
+                        f"Strictly rejecting per duration policy (>65.0s required)."
+                    )
+                    clip.accepted = False
+                    continue
             
             step_base = 0.40 + (i - 1) * (0.55 / n_clips)
             step_weight = 0.55 / n_clips

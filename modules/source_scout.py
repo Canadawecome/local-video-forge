@@ -173,6 +173,23 @@ Please produce concise JSON:
             verified=True,
         ))
 
+        # Add verified chapter evidence from YouTube metadata
+        chapters = meta.get("chapters") or []
+        for c_idx, ch in enumerate(chapters, start=1):
+            st = ch.get("start_time")
+            et = ch.get("end_time")
+            ch_title = ch.get("title") or f"Chapter {c_idx}"
+            if st is not None and et is not None and et > st:
+                ch_ev_id = f"ev_ch_{c_idx}"
+                evidence_list.append(SourceEvidenceV26(
+                    evidence_id=ch_ev_id,
+                    source_kind="CHAPTER",
+                    text=f"Chapter: {ch_title}",
+                    start_sec=float(st),
+                    end_sec=float(et),
+                    verified=True,
+                ))
+
         for idx, ev in enumerate(raw_evidence):
             try:
                 ev_id = f"ev_scout_{idx+1}"
