@@ -95,15 +95,44 @@ def main():
         print(json.dumps(plan.model_dump(), indent=2, ensure_ascii=False))
 
     elif args.command == "restoration-cut":
+        import re
+        import subprocess
         from modules.restoration_cut_director import RestorationCutDirector
         director = RestorationCutDirector()
-        src_video = Path(args.video)
-        out_dir = Path(args.output_dir) if args.output_dir else Config.DATA_DIR / "sources" / (args.source_id or f"src_{int(time.time())}") / "restoration_cut"
+        raw_video_arg = args.video.strip()
+
+        # Handle YouTube URL input
+        if raw_video_arg.startswith("http://") or raw_video_arg.startswith("https://") or "youtube.com" in raw_video_arg or "youtu.be" in raw_video_arg:
+            match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11})", raw_video_arg)
+            vid_id = match.group(1) if match else f"yt_{int(time.time())}"
+            source_id = args.source_id or f"src_{vid_id}"
+            src_folder = Config.DATA_DIR / "sources" / source_id
+            src_folder.mkdir(parents=True, exist_ok=True)
+            src_video = src_folder / "source.mp4"
+
+            if not src_video.exists():
+                logger.info(f"Downloading YouTube source video for {raw_video_arg} (max 1080p)...")
+                cmd = [
+                    sys.executable, "-m", "yt_dlp",
+                    "-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+                    "--merge-output-format", "mp4",
+                    "-o", str(src_video),
+                    raw_video_arg,
+                ]
+                subprocess.run(cmd, check=True)
+                logger.info(f"Downloaded source video to {src_video}")
+            else:
+                logger.info(f"Source video already exists at {src_video}")
+        else:
+            src_video = Path(raw_video_arg)
+            source_id = args.source_id or f"src_{int(time.time())}"
+
+        out_dir = Path(args.output_dir) if args.output_dir else Config.DATA_DIR / "sources" / source_id / "restoration_cut"
         logger.info(f"Running SPEC v4.1 Restoration Cut Director for {src_video}...")
         res = director.execute_cut_directing(
             source_video=src_video,
             output_dir=out_dir,
-            source_id=args.source_id,
+            source_id=source_id,
             runtime_preference=args.runtime,
         )
         print("\n" + "="*60)
