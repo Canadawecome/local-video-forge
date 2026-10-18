@@ -7,6 +7,7 @@ import argparse
 import json
 import logging
 import sys
+import time
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -42,6 +43,13 @@ def main():
     scout_parser.add_argument("url", help="YouTube URL")
     scout_parser.add_argument("--source-id", default="src_cli", help="Source ID")
     scout_parser.add_argument("--subtitles", default=None, help="Path to German .srt file")
+
+    # Command: restoration-cut (SPEC v4.1 Single 75-150s Director)
+    cut_parser = subparsers.add_parser("restoration-cut", help="Run SPEC v4.1 Restoration Cut & Edit Director (single 75-150s cut)")
+    cut_parser.add_argument("video", help="Path to local source video MP4")
+    cut_parser.add_argument("--output-dir", default=None, help="Output directory for visual cut and handoff deliverables")
+    cut_parser.add_argument("--source-id", default=None, help="Custom source ID")
+    cut_parser.add_argument("--runtime", choices=["compact", "standard", "extended"], default="standard", help="Runtime pacing preference (compact: 75-90s, standard: 90-120s, extended: 120-150s)")
 
     # Command: serve
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI web dashboard")
@@ -85,6 +93,26 @@ def main():
             local_srt_path=args.subtitles,
         )
         print(json.dumps(plan.model_dump(), indent=2, ensure_ascii=False))
+
+    elif args.command == "restoration-cut":
+        from modules.restoration_cut_director import RestorationCutDirector
+        director = RestorationCutDirector()
+        src_video = Path(args.video)
+        out_dir = Path(args.output_dir) if args.output_dir else Config.DATA_DIR / "sources" / (args.source_id or f"src_{int(time.time())}") / "restoration_cut"
+        logger.info(f"Running SPEC v4.1 Restoration Cut Director for {src_video}...")
+        res = director.execute_cut_directing(
+            source_video=src_video,
+            output_dir=out_dir,
+            source_id=args.source_id,
+            runtime_preference=args.runtime,
+        )
+        print("\n" + "="*60)
+        print(f"RESTORATION CUT DIRECTOR v4.1 COMPLETE: Status={res.status}")
+        print(f"Selected Duration: {res.runtime_decision.target_duration_ms / 1000.0:.2f}s (mode: {res.runtime_decision.mode})")
+        print(f"Preserved Stages:  {', '.join(res.runtime_decision.preserved_key_stages)}")
+        print(f"Edits Generated:   {len(res.edits)}")
+        print(f"Deliverables in:   {out_dir}")
+        print("="*60 + "\n")
 
     elif args.command == "serve":
         import uvicorn
