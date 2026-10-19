@@ -62,17 +62,30 @@ class SolAdapter:
             except urllib.error.HTTPError as e:
                 err_text = e.read().decode("utf-8", errors="replace")
                 last_err = e
+                # Check for rate limit reset message (e.g., reset after 30s or 1m 20s)
+                import re
+                m_reset = re.search(r"reset after (?:(\d+)m\s*)?(\d+)s", err_text)
+                if m_reset:
+                    mins = int(m_reset.group(1)) if m_reset.group(1) else 0
+                    secs = int(m_reset.group(2))
+                    wait_time = mins * 60 + secs + 2
+                    if wait_time > 15:
+                        raise SolModelUnavailableError(f"Endpoint rate limit active (reset in {wait_time}s). Failing fast to engage backup model.")
+                    logger.warning(f"Endpoint rate limit active (reset in {wait_time}s). Waiting before retry {attempt}/{retries}...")
+                    time.sleep(wait_time)
+                    continue
+
                 if e.code in (401, 403, 404):
                     raise SolModelUnavailableError(f"HTTP {e.code} from Sol endpoint: {err_text}") from e
-                if e.code == 429:
-                    time.sleep(2 * attempt)
+                if e.code in (429, 503):
+                    time.sleep(3 * attempt)
                     continue
                 time.sleep(1.5 * attempt)
             except Exception as e:
                 last_err = e
                 time.sleep(1.5 * attempt)
 
-        raise RuntimeError(f"Failed calling GPT-5.6 Sol after {retries} attempts: {last_err}")
+        raise RuntimeError(f"Failed calling Model {self.model} after {retries} attempts: {last_err}")
 
     def generate_structured_json(
         self,

@@ -10,8 +10,7 @@ __pycache__/
 ._*
 
 # Local runtime state and generated media
-data/*.db
-data/sources/
+data/
 output/
 outputs/
 render/
@@ -23,3 +22,10 @@ renders/
 *.wav
 *.mp3
 *.m4a
+*.log
+*.part
+*.json3
+detected_speech.json
+cookies.txt
+demucs_temp/
+test_demucs/

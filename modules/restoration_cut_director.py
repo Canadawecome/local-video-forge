@@ -603,21 +603,50 @@ class RestorationCutDirector:
 
         segment_mp4s: list[Path] = []
 
-        logger.info(f"Rendering {len(plan.edits)} visual cut segments to 1080x1920...")
+        logger.info(f"Rendering {len(plan.edits)} visual cut segments with Smart Reframe ASMR v1.0 to 1080x1920...")
 
-        # Export each edit segment with 9:16 portrait crop
+        # Smart Reframe ASMR v1.0 layout planning
+        from modules.smart_reframe import SmartReframeDirector
+        reframe_dir = out_folder / "smart_reframe"
+        reframe_director = SmartReframeDirector(target_width=1080, target_height=1920)
+        edits_data = [
+            {
+                "edit_id": e.edit_id,
+                "stage": e.stage.value if hasattr(e.stage, "value") else str(e.stage),
+                "source_start_ms": e.source_start_ms,
+                "source_end_ms": e.source_end_ms,
+            }
+            for e in plan.edits
+        ]
+        reframe_plan = reframe_director.plan_reframe_for_edits(
+            source_video=source_path,
+            edits=edits_data,
+            output_dir=reframe_dir,
+            job_id=f"reframe_{plan.source_id}",
+            source_id=plan.source_id,
+        )
+        reframe_map = {shot.edit_id: shot for shot in reframe_plan.shots}
+
+        # Export each edit segment with Smart Reframe 9:16 layout
         for e in plan.edits:
             seg_file = temp_dir / f"{e.edit_id}.mp4"
             start_s = e.source_start_ms / 1000.0
             dur_s = (e.source_end_ms - e.source_start_ms) / 1000.0
+            stage_val = e.stage.value if hasattr(e.stage, "value") else str(e.stage)
 
-            # 9:16 smart crop and scaling filter:
-            # Crop to 9:16 aspect ratio, centered on workpiece, scale to 1080x1920
-            vf_filter = (
-                f"crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
-                f"scale=1080:1920:flags=lanczos,"
-                f"setsar=1"
-            )
+            shot_plan = reframe_map.get(e.edit_id)
+            if shot_plan and shot_plan.ffmpeg_filter:
+                vf_filter = shot_plan.ffmpeg_filter
+                logger.info(
+                    f"Segment {e.edit_id} ({stage_val}): Applied Smart Reframe layout '{shot_plan.layout.value}' "
+                    f"| {shot_plan.reason}"
+                )
+            else:
+                vf_filter = (
+                    f"crop=ih*9/16:ih:(iw-ih*9/16)/2:0,"
+                    f"scale=1080:1920:flags=lanczos,"
+                    f"setsar=1"
+                )
 
             cmd = [
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",

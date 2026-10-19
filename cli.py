@@ -54,6 +54,12 @@ def main():
     cut_parser.add_argument("--runtime", choices=["compact", "standard", "extended"], default="standard", help="Runtime pacing preference (compact: 75-90s, standard: 90-120s, extended: 120-150s)")
     cut_parser.add_argument("--visual-only", action="store_true", help="Only generate visual cut plate without downstream voiceover/subtitles/final render")
 
+    # Command: batch-channel
+    batch_parser = subparsers.add_parser("batch-channel", help="Run batch restoration processing on a queue of videos")
+    batch_parser.add_argument("--queue", default="data/ntrprojects_queue.json", help="Path to JSON queue file")
+    batch_parser.add_argument("--runtime", choices=["compact", "standard", "extended"], default="standard", help="Runtime preference")
+    batch_parser.add_argument("--max-videos", type=int, default=None, help="Max videos to process")
+
     # Command: serve
     serve_parser = subparsers.add_parser("serve", help="Launch FastAPI web dashboard")
     serve_parser.add_argument("--host", default=Config.HOST, help="Host to bind")
@@ -169,6 +175,15 @@ def main():
             if final_clip.publish_pack:
                 print(f"Title:          {final_clip.publish_pack.title_en}")
             print("="*60 + "\n")
+
+    elif args.command == "batch-channel":
+        import batch_channel_runner
+        batch_channel_runner.run_batch(
+            queue_path=args.queue,
+            runtime=args.runtime,
+            max_videos=args.max_videos,
+            skip_completed=True,
+        )
 
     elif args.command == "serve":
         import uvicorn
