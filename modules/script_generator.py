@@ -11,6 +11,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -104,6 +105,32 @@ class ScriptGenerator:
         details = insp_data.get("inspection", {})
         visible_actions = details.get("visible_actions", [])
         suggested_angle = details.get("suggested_story_angle", f"Traditional craftsmanship step {clip_index}")
+
+        # Smart Cache: Reuse existing valid craftsman story_plan if no bad phrases present
+        story_plan_file = output_folder / "story_plan.json"
+        script_file = output_folder / "script_en.md"
+        if story_plan_file.exists() and script_file.exists():
+            try:
+                s_text = script_file.read_text(encoding="utf-8")
+                bad_phrases = ["rust-seized", "scrap pile", "century of history", "dead metal", "1920s relic", "reinventing precision engineering | part"]
+                if not any(b in s_text.lower() for b in bad_phrases):
+                    s_data = json.loads(story_plan_file.read_text(encoding="utf-8"))
+                    if s_data.get("narration_segments"):
+                        logger.info(f"Reusing existing valid craftsman story_plan.json for {clip_uid}")
+                        title_line = s_text.splitlines()[0] if s_text else ""
+                        title_en = title_line.replace("#", "").strip() or f"Precision Workshop Craft | Part {clip_index}"
+                        return ClipScriptRecord(
+                            clip_uid=clip_uid,
+                            revision=1,
+                            story_angle=details.get("suggested_story_angle", title_en),
+                            title_en=title_en,
+                            script_path=f"{output_folder.name}/script_en.md",
+                            tts_text_path=f"{output_folder.name}/script_tts.txt",
+                            evidence_refs=[f"ev_clip_{clip_index}"],
+                            qc_pass=True,
+                        )
+            except Exception as e:
+                logger.warning(f"Could not reuse existing story_plan: {e}")
 
         # Check for German transcript (Opus SRT or local transcript)
         srt_file = output_folder / "opus_clip.srt"
@@ -280,27 +307,28 @@ class ScriptGenerator:
 
             # 2. Query Sol with viral high-retention craftsman storytelling formula
             system_prompt = (
-                "You are an elite master craftsman and viral documentary storyteller for TikTok, Instagram Reels, and YouTube Shorts.\n"
+                "You are an elite master craftsman, precision machinist, and viral documentary storyteller for TikTok, Instagram Reels, and YouTube Shorts.\n"
                 "Your objective is MAXIMAL AUDIENCE RETENTION, psychological curiosity, and authentic craftsman credibility.\n"
-                "Create an irresistible, first-person ('I...') narrative following this viral short-form formula:\n\n"
-                "1. THE VIRAL HOOK (story_001, 0-3s):\n"
-                "   - NEVER start with weak, procedural descriptions like 'That finished shine started here' or 'First I inspect'.\n"
-                "   - OPEN WITH AN IRRESISTIBLE CURIOSITY GAP, SKEPTICISM-DEFYING TRUTH, OR EXTREME STAKES:\n"
-                "     * Examples: 'Most people would have thrown this in the trash. I saw a century of history.', 'Buried under eighty years of rust... everyone said it was dead metal. They were wrong.', 'Found this 1920s relic fused solid with scale.'\n\n"
-                "2. STAKES, DANGER & MICRO-JEOPARDY (Process segments):\n"
-                "   - DO NOT just list recipe steps ('First I took it apart, then I ground it').\n"
-                "   - Inject friction, mechanical risks, and tactile epiphanies:\n"
-                "     * 'The adjustment screw was seized solid. One wrong turn with the torch, and century-old cast iron snaps forever.'\n"
-                "     * 'Watch the original 1920 factory stampings fight their way out from under the scale.'\n"
-                "     * 'We don't erase the battle scars; we rebuild factory tolerances.'\n"
-                "   - Use punchy, visceral sensory words: 'seized solid', 'razor tolerances', 'fused metal', 'mirror reflection', 'molten scale'.\n\n"
+                "Create an irresistible, first-person ('I...') narrative grounded strictly in the project details provided in the prompt.\n\n"
+                "CRITICAL RULES:\n"
+                "- Ground the story 100% in the ACTUAL project described in the title and context (e.g. precision machining, watchmaking, horology, toolmaking, engineering).\n"
+                "- DO NOT invent fake backstories about scrap heaps, rusty barn finds, or antique decay unless explicitly stated in the context.\n"
+                "- Highlight real engineering tension: micrometer tolerances (thousandths of an inch/microns), chip load, cutter chatter, razor-sharp edges, mirror polishes, brass, titanium, and hardened steel.\n"
+                "- 1. THE VIRAL HOOK (story_001, 0-3s):\n"
+                "   - Hook the audience with the audacious engineering challenge, micrometer tolerances, or what makes this mechanism seemingly impossible or extraordinary.\n"
+                "   - Example for machining/watchmaking: 'Machining a steel gear thinner than a human hair on a manual lathe? One breath of chatter and forty hours of work turns to scrap.'\n"
+                "   - Example for toolmaking/invention: 'They told me this mechanism was geometrically impossible to machine in one piece. I had to prove them wrong.'\n"
+                "   - Example for restoration: 'Fifty years of neglect had seized this mechanism solid, but the factory tolerances were still sleeping underneath.'\n\n"
+                "2. STAKES, DANGER & TACTILE PROCESS (Process segments):\n"
+                "   - Focus on the real tactile sensations of the craft: razor-sharp carbide tools, mirror cuts, micro-drilling, jewel bearings, hairspring tension, hand-lapping, gear teeth meshing.\n"
+                "   - Use punchy, visceral sensory words: 'micrometer tolerances', 'chip clearance', 'dead true', 'hand-lapped', 'zero backlash', 'mirror polish'.\n\n"
                 "3. CONCISE RHYTHM (10 to 14 words per segment):\n"
                 "   - Keep phrases rhythmic, confident, and natural. Between 10 and 14 words per segment so words breathe.\n\n"
                 "4. ASMR CLIMAX & PAYOFF (Final segment):\n"
-                "   - Celebrate the mechanical resurrection with deep craft pride.\n"
+                "   - Celebrate the mechanical precision and flawless movement with deep craft pride.\n"
                 "   - KEEP IT UNDER 11 WORDS so the narration stops and the viewer hears the pure, crisp mechanical sound in the final 3 seconds.\n"
-                "   - Example: 'Listen to that ratchet click. Tight as 1912. Ready for another century.'\n\n"
-                "5. TITLE: High-CTR, curiosity-driven title specifying the exact antique tool/object.\n\n"
+                "   - Example: 'Turn the knurled body. Smooth as glass. Perfection.'\n\n"
+                "5. TITLE: High-CTR, curiosity-driven title specifying the exact object/part being made or restored.\n\n"
                 "Return STRICT JSON with keys:\n"
                 "- title_en (str)\n"
                 "- story_angle (str)\n"
@@ -314,9 +342,9 @@ class ScriptGenerator:
             user_prompt = (
                 f"CLIP UID: {clip_uid}\n"
                 f"DURATION: {clip_duration:.1f}s\n"
-                f"PRIMARY CRAFT PROCESS: {details.get('primary_craft_process', 'Craft restoration')}\n"
+                f"PRIMARY CRAFT PROCESS: {details.get('primary_craft_process', 'Precision engineering & craftsmanship')}\n"
                 f"SUGGESTED ANGLE: {suggested_angle}\n"
-                f"SOURCE CONTEXT: {source_context_text[:500]}\n\n"
+                f"SOURCE CONTEXT:\n{source_context_text[:1200]}\n\n"
                 f"VISIBLE WORKSHOP ACTIONS OBSERVED:\n{actions_str}\n\n"
                 f"REQUIRED NARRATION SLOTS (match these IDs and timing bounds):\n{slots_str}"
             )
@@ -336,26 +364,26 @@ class ScriptGenerator:
                 except Exception as e2:
                     logger.warning(f"Backup model also failed ({e2}). Using diverse craft script fallback.")
                     craft_lines = [
-                        "Examining the initial worn mechanism before tearing it down for precision rebuilding.",
-                        "Extracting the internal components and assessing the wear on the primary contact faces.",
-                        "Stripping decades of stubborn oxidation down to raw, untouched metal.",
-                        "Truing the contact surfaces on the lathe to restore factory micrometric tolerances.",
-                        "Threading and milling the custom replacement parts for a seamless fit.",
-                        "Buffing the newly machined faces with fine compound to achieve a flawless mirror polish.",
-                        "Carefully reassembling the drive train with fresh lubrication and proper preload.",
-                        "Testing the completed assembly under full load--turning smooth as silk."
+                        "Examining the raw billet and setting up the tooling for precision machining.",
+                        "Dialing in the four-jaw chuck to achieve zero runout across the reference face.",
+                        "Taking light finishing passes with a razor-sharp carbide insert for a mirror cut.",
+                        "Truing the contact surfaces on the lathe to maintain sub-micron tolerances.",
+                        "Milling the intricate interlocking geometry with constant chip clearance.",
+                        "Deburring the delicate edges and hand-lapping the mating contact surfaces.",
+                        "Carefully seating the precision pivots with high-grade synthetic watch lubricant.",
+                        "Testing the completed mechanism under load--rotating completely smooth without any backlash."
                     ]
                     sol_resp = {
-                        "title_en": f"Reinventing Precision Engineering | Part {clip_index}",
+                        "title_en": f"Precision Engineering Masterclass | Part {clip_index}",
                         "story_angle": suggested_angle,
-                        "audio_direction": {"voice_gain_db": 6.0, "bed_ducking_db": -3.5, "rationale": "Lathe ASMR balance"},
+                        "audio_direction": {"voice_gain_db": 6.0, "bed_ducking_db": -3.5, "rationale": "Machining ASMR balance"},
                         "segments": [
                             {"id": s["id"], "text_en": craft_lines[idx % len(craft_lines)]}
                             for idx, s in enumerate(slots)
                         ]
                     }
 
-            title_en = sol_resp.get("title_en") or f"Vintage Workshop Restoration | Part {clip_index}"
+            title_en = sol_resp.get("title_en") or f"Precision Workshop Craft | Part {clip_index}"
             story_angle = sol_resp.get("story_angle") or suggested_angle
             audio_dir = sol_resp.get("audio_direction", {})
             vg = max(-12.0, min(6.0, float(audio_dir.get("voice_gain_db", 4.5))))
@@ -364,7 +392,7 @@ class ScriptGenerator:
             resp_segs = {s.get("id"): s.get("text_en") for s in sol_resp.get("segments", [])}
             voice_segs = []
             for s in slots:
-                txt = resp_segs.get(s["id"]) or "Focusing the cutting edge to clear decades of oxidation and wear."
+                txt = resp_segs.get(s["id"]) or "Machining the component to exact micrometric tolerances with clean tool passes."
                 txt = re.sub(r'[\u2014\u2013]', '--', txt)
                 txt = re.sub(r'[\u2018\u2019]', "'", txt)
                 txt = re.sub(r'[\u201c\u201d]', '"', txt)

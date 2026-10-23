@@ -56,7 +56,7 @@ def main():
 
     # Command: batch-channel
     batch_parser = subparsers.add_parser("batch-channel", help="Run batch restoration processing on a queue of videos")
-    batch_parser.add_argument("--queue", default="data/ntrprojects_queue.json", help="Path to JSON queue file")
+    batch_parser.add_argument("--queue", default="data/chronova_queue.json", help="Path to JSON queue file")
     batch_parser.add_argument("--runtime", choices=["compact", "standard", "extended"], default="standard", help="Runtime preference")
     batch_parser.add_argument("--max-videos", type=int, default=None, help="Max videos to process")
 

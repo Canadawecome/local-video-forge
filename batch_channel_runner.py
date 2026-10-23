@@ -41,23 +41,24 @@ def save_progress(progress_path: Path, data: dict[str, Any]) -> None:
 
 
 def run_batch(
-    queue_path: str | Path = "data/ntrprojects_queue.json",
+    queue_path: str | Path = "data/chronova_queue.json",
     runtime: str = "standard",
     max_videos: int | None = None,
     skip_completed: bool = True,
 ) -> dict[str, Any]:
     q_path = Path(queue_path)
     if not q_path.is_absolute():
-        q_path = Config.DATA_DIR / queue_path if not q_path.exists() else q_path
+        q_path = (Config.DATA_DIR / queue_path) if (Config.DATA_DIR / queue_path).exists() else Path(queue_path)
 
     queue = load_queue(q_path)
     logger.info(f"Loaded {len(queue)} videos from queue: {q_path}")
 
     orchestrator = PipelineOrchestrator()
-    progress_path = Config.DATA_DIR / "ntrprojects_progress.json"
+    prefix = q_path.stem.replace("_queue", "")
+    progress_path = q_path.parent / f"{prefix}_progress.json"
 
     progress: dict[str, Any] = {
-        "channel_url": "https://www.youtube.com/@NTRprojects",
+        "channel_url": f"https://www.youtube.com/@{prefix}",
         "total_queued": len(queue),
         "completed": 0,
         "failed": 0,
@@ -87,12 +88,28 @@ def run_batch(
         dur_min = item.get("duration_min", 0.0)
 
         final_mp4 = Config.DATA_DIR / "sources" / source_id / "output" / "clip_001_craft" / "final.mp4"
-        reframe_plan_file = Config.DATA_DIR / "sources" / source_id / "restoration_cut" / "smart_reframe" / "layouts" / "reframe_plan.v1.json"
+        script_file = Config.DATA_DIR / "sources" / source_id / "output" / "clip_001_craft" / "script_en.md"
+        
+        has_bad_script = False
+        if script_file.exists():
+            c_text = script_file.read_text(encoding="utf-8", errors="ignore").lower()
+            bad_phrases = ["rust-seized", "scrap pile", "century of history", "dead metal", "1920s relic", "reinventing precision engineering | part"]
+            if any(b in c_text for b in bad_phrases):
+                has_bad_script = True
 
-        # Check if already completed WITH Smart Reframe ASMR v1.0
-        is_reframe_completed = final_mp4.exists() and final_mp4.stat().st_size > 5_000_000 and reframe_plan_file.exists()
-        if skip_completed and is_reframe_completed:
-            logger.info(f"[{idx}/{total}] SKIP ALREADY COMPLETED (Smart Reframe v1.0): {title} ({source_id}) -> {final_mp4}")
+        demucs_flag = Config.DATA_DIR / "sources" / source_id / "output" / "clip_001_craft" / "audio" / "demucs_done.flag"
+        has_demucs = demucs_flag.exists()
+
+        is_completed = False
+        if final_mp4.exists() and final_mp4.stat().st_size > 5_000_000 and not has_bad_script and has_demucs:
+            from modules.opus_manager import probe_video
+            p = probe_video(final_mp4)
+            dur = p.get("duration", 0.0)
+            if 72.0 <= dur <= 76.0:
+                is_completed = True
+
+        if skip_completed and is_completed:
+            logger.info(f"[{idx}/{total}] SKIP ALREADY COMPLETED (74s constraint verified): {title} ({source_id}) -> {final_mp4}")
             progress["results"][source_id] = {
                 "id": vid_id,
                 "title": title,
@@ -140,6 +157,11 @@ def run_batch(
                 "completed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             }
             progress["completed"] += 1
+            try:
+                from modules.export_downloader import export_all_completed
+                export_all_completed()
+            except Exception as exp_err:
+                logger.warning(f"Export downloader warning: {exp_err}")
         except Exception as e:
             elapsed = time.time() - t0
             logger.error(f"[{idx}/{total}] FAILED after {elapsed:.1f}s: {title} -> {e}")
@@ -169,7 +191,7 @@ def run_batch(
 
 def main():
     parser = argparse.ArgumentParser(description="Batch Runner for Restoration Video Processing")
-    parser.add_argument("--queue", default="data/ntrprojects_queue.json", help="Path to JSON queue file")
+    parser.add_argument("--queue", default="data/chronova_queue.json", help="Path to JSON queue file")
     parser.add_argument("--runtime", default="standard", choices=["compact", "standard", "extended"], help="Target runtime preference")
     parser.add_argument("--max-videos", type=int, default=None, help="Max videos to process in this run")
     parser.add_argument("--skip-completed", action="store_true", default=True, help="Skip videos that already have final.mp4")

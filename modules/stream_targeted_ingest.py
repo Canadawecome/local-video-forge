@@ -20,16 +20,29 @@ from config import Config
 
 logger = logging.getLogger("stream_targeted_ingest")
 
+PRECISION_CRAFT_STAGES = [
+    ("CONCEPT_STOCK", "Examining blueprint specifications and raw billet stock", 0.00, 0.06),
+    ("FIXTURING", "Setting up workpiece, trueing four-jaw chuck, dial indicator centering", 0.06, 0.14),
+    ("ROUGH_TURNING", "Facing cut, rough material removal, heavy chip clearance", 0.14, 0.28),
+    ("PRECISION_TURNING", "Micrometric turning, boring tolerances, single-point threading", 0.28, 0.44),
+    ("COMPLEX_MILLING", "Form tooling, gear wheel tooth cutting, micro-milling details", 0.44, 0.58),
+    ("FINE_DRILLING", "Micro-drilling, deburring delicate edges, jewel bearing seats", 0.58, 0.70),
+    ("SURFACE_FINISH", "Surface graining, lapping contact faces, abrasive polish", 0.70, 0.82),
+    ("ASSEMBLY", "Aligning precision components, pressing pivots, lubrication", 0.82, 0.92),
+    ("OPERATIONAL_TEST", "Functional test under load, checking zero backlash", 0.92, 0.97),
+    ("FINAL_REVEAL", "Pristine gleaming final reveal, smooth mechanical action", 0.97, 1.00),
+]
+
 RESTORATION_STAGES = [
-    ("BEFORE", "Heavy rust, decay, or initial worn condition of the antique artifact", 0.00, 0.04),
+    ("BEFORE", "Initial condition and assessment of antique artifact", 0.00, 0.04),
     ("INSPECTION", "Detailed inspection, testing frozen parts, measuring wear", 0.04, 0.08),
     ("DISASSEMBLY", "Tearing down components, extracting seized bolts, pins and springs", 0.08, 0.18),
-    ("RUST_REMOVAL", "Electrolysis, wire wheeling, acid bath, or heavy sandblasting", 0.18, 0.32),
+    ("CLEANING", "Electrolysis, ultrasonic cleaning, oxide clearance", 0.18, 0.32),
     ("GRINDING", "Surface grinding, rotary filing, flattening warped contact faces", 0.32, 0.46),
-    ("REPAIR", "Welding cracks, brazing broken tabs, precision thread chasing", 0.46, 0.60),
+    ("REPAIR", "Brazing, bushing installation, precision thread chasing", 0.46, 0.60),
     ("POLISHING", "Abrasive wheel buffing, scotch-brite scouring, mirror finish work", 0.60, 0.74),
-    ("PAINT_FINISH", "Primer application, hot blueing, oil quenching, or protective coating", 0.74, 0.84),
-    ("ASSEMBLY", "Aligning newly restored parts, pressing bearings, tightening polished brass", 0.84, 0.92),
+    ("FINISH", "Hot blueing, oil quenching, or protective coating", 0.74, 0.84),
+    ("ASSEMBLY", "Aligning newly restored parts, pressing bearings, tightening polished hardware", 0.84, 0.92),
     ("TEST", "First functional test under full load, smooth mechanical operation", 0.92, 0.97),
     ("AFTER_REVEAL", "Pristine gleaming final reveal, 360-degree beauty spin", 0.97, 1.00),
 ]
@@ -71,32 +84,71 @@ class StreamTargetedIngest:
         meta: dict[str, Any],
         target_total_sec: float = 74.0,
     ) -> list[dict[str, Any]]:
-        """Plans exact start and end timestamps for each restoration stage.
+        """Plans exact start and end timestamps for each restoration/craft stage.
         Strictly enforces duration between 72.0s and 76.0s (default: 74.0s).
+        Prioritizes real YouTube video chapters if available.
         """
-        # Strict duration gate: clamp to [72.0s, 76.0s]
         target_total_sec = max(72.0, min(76.0, float(target_total_sec)))
         total_duration = float(meta.get("duration") or 600.0)
         chapters = meta.get("chapters") or []
         
         logger.info(f"Planning targeted sections: Video duration={total_duration:.1f}s, Target={target_total_sec:.2f}s (Constraint: 72s-76s)")
 
-        # Distribute target_total_sec evenly across stages so sum is EXACTLY target_total_sec
-        n_stages = len(RESTORATION_STAGES)
+        sections: list[dict[str, Any]] = []
+
+        # Strategy A: Use Real Chapters if >= 3 chapters exist
+        valid_chapters = [
+            c for c in chapters 
+            if float(c.get("end_time", 0)) > float(c.get("start_time", 0))
+        ]
+        if len(valid_chapters) >= 3:
+            logger.info(f"Using {len(valid_chapters)} native YouTube chapters for targeted slicing.")
+            n_stages = len(valid_chapters)
+            base_dur = round(target_total_sec / n_stages, 2)
+            durs = [base_dur] * n_stages
+            diff = round(target_total_sec - sum(durs), 2)
+            durs[-1] = round(durs[-1] + diff, 2)
+
+            for idx, (ch, shot_dur) in enumerate(zip(valid_chapters, durs), 1):
+                c_start = float(ch.get("start_time", 0))
+                c_end = min(total_duration, float(ch.get("end_time", total_duration)))
+                c_len = c_end - c_start
+                if c_len > shot_dur:
+                    offset = (c_len - shot_dur) * 0.45
+                    actual_start = round(c_start + offset, 2)
+                    actual_end = round(actual_start + shot_dur, 2)
+                else:
+                    actual_start = round(c_start, 2)
+                    actual_end = round(min(total_duration, actual_start + shot_dur), 2)
+
+                sections.append({
+                    "stage_idx": idx,
+                    "stage_name": ch.get("title", f"Stage {idx}"),
+                    "description": f"Process phase: {ch.get('title', '')}",
+                    "source_start_sec": actual_start,
+                    "source_end_sec": actual_end,
+                    "duration_sec": round(actual_end - actual_start, 2),
+                })
+            planned_total = sum(s["duration_sec"] for s in sections)
+            logger.info(f"Planned {len(sections)} chapter stages, total planned duration: {planned_total:.2f}s")
+            return sections
+
+        # Strategy B: Proportional Stage Template (Restoration vs Precision Craft)
+        title_desc = ((meta.get("title") or "") + " " + (meta.get("description") or "")).lower()
+        is_rust_resto = any(k in title_desc for k in ["rusty", "rust restoration", "barn find", "scrap pile", "heavily rusted"])
+        active_stages = RESTORATION_STAGES if is_rust_resto else PRECISION_CRAFT_STAGES
+
+        n_stages = len(active_stages)
         base_dur = round(target_total_sec / n_stages, 2)
         durs = [base_dur] * n_stages
         diff = round(target_total_sec - sum(durs), 2)
         durs[-1] = round(durs[-1] + diff, 2)
 
-        sections: list[dict[str, Any]] = []
-
-        for idx, ((stage_name, desc, p_start, p_end), shot_dur) in enumerate(zip(RESTORATION_STAGES, durs), 1):
-            # Calculate nominal range in the source video
+        for idx, ((stage_name, desc, p_start, p_end), shot_dur) in enumerate(zip(active_stages, durs), 1):
             src_win_start = p_start * total_duration
             src_win_end = p_end * total_duration
             win_len = src_win_end - src_win_start
 
-            # Take high-activity segment in the middle/upper portion of the stage window
             if win_len > shot_dur:
                 offset = (win_len - shot_dur) * 0.4
                 actual_start = round(src_win_start + offset, 2)
@@ -115,7 +167,7 @@ class StreamTargetedIngest:
             })
 
         planned_total = sum(s["duration_sec"] for s in sections)
-        logger.info(f"Planned {len(sections)} stages, total planned duration: {planned_total:.2f}s")
+        logger.info(f"Planned {len(sections)} stages ({'restoration' if is_rust_resto else 'precision craft'}), total planned duration: {planned_total:.2f}s")
         return sections
 
     def build_authentic_workshop_asmr_bed(

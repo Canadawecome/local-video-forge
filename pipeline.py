@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -327,6 +328,10 @@ class PipelineOrchestrator:
                 from modules.stream_targeted_ingest import StreamTargetedIngest
                 ingester = StreamTargetedIngest()
                 meta = ingester.fetch_video_metadata(raw_source)
+                try:
+                    (cut_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+                except Exception:
+                    pass
                 sections = ingester.plan_targeted_sections(meta, target_total_sec=74.0)
                 visual_cut_mp4, src_asmr, _ = ingester.download_and_assemble(
                     youtube_url=raw_source,
@@ -348,6 +353,27 @@ class PipelineOrchestrator:
         if not visual_cut_mp4.exists():
             raise FileNotFoundError(f"Visual cut was not generated: {visual_cut_mp4}")
 
+        # Ensure metadata is loaded for rich, authentic script generation
+        meta_file = cut_dir / "meta.json"
+        meta: dict[str, Any] = {}
+        if meta_file.exists():
+            try:
+                meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+        if not meta and is_url:
+            try:
+                from modules.stream_targeted_ingest import StreamTargetedIngest
+                meta = StreamTargetedIngest().fetch_video_metadata(raw_source)
+                meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+            except Exception as e:
+                logger.warning(f"Could not fetch metadata for context: {e}")
+
+        video_title = meta.get("title") or source_id
+        video_desc = (meta.get("description") or "")[:800]
+        video_chapters = meta.get("chapters") or []
+        ch_titles = [c.get("title", "") for c in video_chapters if c.get("title")]
+
         # 3. Bridge to Downstream Review / Clip Folder
         output_dir = source_dir / "output"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -365,34 +391,82 @@ class PipelineOrchestrator:
         shutil.copy2(visual_cut_mp4, dest_clip)
         shutil.copy2(visual_cut_mp4, dest_orig)
 
-        # AI Voice Elimination & Pure Workshop ASMR Bed:
+        # AI Voice Elimination & Pure Workshop ASMR Bed (Meta Demucs v4):
         audio_dir = clip_folder / "audio"
         audio_dir.mkdir(parents=True, exist_ok=True)
-        if src_asmr.exists():
-            notify("AUTHENTIC_ASMR_ENGINE", 0.40, "Authentic Workshop ASMR Engine: Activating 100% voice-free mechanical soundbed (RMS >= 0.05)...")
-            clean_stem = audio_dir / "workshop_clean.wav"
-            res_stem = audio_dir / "residual_workshop.wav"
-            shutil.copy2(src_asmr, clean_stem)
-            shutil.copy2(src_asmr, res_stem)
+        clean_stem = audio_dir / "workshop_clean.wav"
+        res_stem = audio_dir / "residual_workshop.wav"
 
-            # Bulletproof Defense: Remux dest_clip (clip.mp4) with clean_stem so clip.mp4 NEVER has human speech
+        # Check if clean_stem already exists and was Demucs-processed
+        needs_separation = True
+        if clean_stem.exists() and clean_stem.stat().st_size > 5_000_000 and (audio_dir / "demucs_done.flag").exists():
+            needs_separation = False
+            logger.info("Reusing Demucs-separated clean workshop ASMR stem.")
+
+        if needs_separation:
+            notify("AUTHENTIC_ASMR_ENGINE", 0.40, "Meta Demucs v4: Eliminating 100% of original human speech to produce pure workshop ASMR...")
+            from modules.ai_stem_separator import AIVocalSeparator
+            separator = AIVocalSeparator()
+
+            # Extract full 74s audio from visual_cut_mp4
+            raw_cut_audio = audio_dir / "raw_cut_audio.wav"
+            subprocess.run([
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", str(visual_cut_mp4),
+                "-vn", "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
+                "-t", "74.0",
+                str(raw_cut_audio)
+            ], check=True)
+
             try:
-                temp_remux = clip_folder / "clip_voicefree.mp4"
-                remux_cmd = [
+                temp_demucs_clean = audio_dir / "demucs_clean.wav"
+                separator.separate_vocals(
+                    input_wav=raw_cut_audio,
+                    output_clean_wav=temp_demucs_clean,
+                    output_vocal_wav=audio_dir / "isolated_creator_vocals.wav",
+                    device="cpu"
+                )
+
+                # Post-process clean_stem: highpass filter to kill low-end motor drone, notch boxiness, boost presence
+                subprocess.run([
                     "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", str(dest_clip),
-                    "-i", str(clean_stem),
-                    "-map", "0:v:0", "-map", "1:a:0",
-                    "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                    "-t", "74.0",
-                    str(temp_remux)
-                ]
-                import subprocess
-                subprocess.run(remux_cmd, check=True)
-                shutil.move(str(temp_remux), str(dest_clip))
-                logger.info("Successfully remuxed clip.mp4 with 100% voice-free ASMR stem.")
+                    "-i", str(temp_demucs_clean),
+                    "-af", "highpass=f=120,equalizer=f=320:width_type=o:w=1.2:g=-6,equalizer=f=4500:width_type=o:w=1.2:g=3.5,volume=1.2",
+                    "-ar", "48000", "-ac", "2",
+                    "-c:a", "pcm_s16le",
+                    str(clean_stem)
+                ], check=True)
+                (audio_dir / "demucs_done.flag").write_text("DEMUCS_SEPARATED_OK", encoding="utf-8")
+                try:
+                    temp_demucs_clean.unlink(missing_ok=True)
+                except Exception:
+                    pass
             except Exception as e:
-                logger.warning(f"Could not remux clip.mp4 with clean stem: {e}")
+                logger.warning(f"Demucs separation warning: {e}. Falling back to source ASMR.")
+                if src_asmr.exists():
+                    shutil.copy2(src_asmr, clean_stem)
+                else:
+                    shutil.copy2(raw_cut_audio, clean_stem)
+
+        shutil.copy2(clean_stem, res_stem)
+
+        # Bulletproof Defense: Remux dest_clip (clip.mp4) with clean_stem so clip.mp4 NEVER has human speech
+        try:
+            temp_remux = clip_folder / "clip_voicefree.mp4"
+            remux_cmd = [
+                "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+                "-i", str(dest_clip),
+                "-i", str(clean_stem),
+                "-map", "0:v:0", "-map", "1:a:0",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                "-t", "74.0",
+                str(temp_remux)
+            ]
+            subprocess.run(remux_cmd, check=True)
+            shutil.move(str(temp_remux), str(dest_clip))
+            logger.info("Successfully remuxed clip.mp4 with 100% voice-free ASMR stem.")
+        except Exception as e:
+            logger.warning(f"Could not remux clip.mp4 with clean stem: {e}")
 
         # Read story map and build inspection.json
         story_map_file = cut_dir / "story_map.json"
@@ -405,28 +479,36 @@ class PipelineOrchestrator:
             for s in story_map_data
         ]
         if not visible_actions:
-            visible_actions = [
-                "Inspection and assessment of worn antique tool",
-                "Disassembly and extraction of seized parts",
-                "Rust removal and heavy oxide clearance",
-                "Surface grinding and precision tolerance rebuilding",
-                "Fine abrasive polishing and mirror buffing",
-                "Reassembly, lubrication and mechanical alignment",
-                "Final operational testing and pristine finished reveal",
-            ]
+            if ch_titles:
+                visible_actions = [f"Machining phase: {t}" for t in ch_titles]
+            else:
+                visible_actions = [
+                    "Setup on precision lathe and workpiece indicating",
+                    "Facing and turning to sub-micron tolerances",
+                    "Milling interlocking features and micro-mechanics",
+                    "Micro-drilling, deburring and jewel bearing fitting",
+                    "Abrasive graining, surface lapping and polishing",
+                    "Assembly, pivot alignment and synthetic watch lubrication",
+                    "Operational functional test and smooth motion payoff",
+                ]
 
         from modules.opus_manager import probe_video
         cut_probe = probe_video(dest_clip)
-        actual_dur = cut_probe.get("duration") or 105.0
+        actual_dur = cut_probe.get("duration") or 74.0
+
+        title_desc_lower = (video_title + " " + video_desc).lower()
+        is_rust = any(k in title_desc_lower for k in ["rusty", "rust restoration", "barn find", "scrap pile", "heavily rusted"])
+        process_type = f"Antique tool restoration: {video_title}" if is_rust else f"Precision machining & horology: {video_title}"
+        materials = ["Corroded iron and steel", "Restored surfaces"] if is_rust else ["Precision brass and high-carbon steel", "Micrometric tolerances", "Mirror-polished components"]
 
         insp_data = {
             "clip_uid": canonical_clip_uid,
             "clip_duration_sec": actual_dur,
             "inspection": {
-                "primary_craft_process": "Vintage mechanical antique restoration",
+                "primary_craft_process": process_type,
                 "visible_actions": visible_actions,
-                "suggested_story_angle": "Master craftsman restoration transformation",
-                "material_observations": ["Heavily corroded steel", "Machined precision tolerances", "Mirror finish"],
+                "suggested_story_angle": f"Master craftsman precision build: {video_title}",
+                "material_observations": materials,
             }
         }
         (clip_folder / "inspection.json").write_text(json.dumps(insp_data, indent=2), encoding="utf-8")
@@ -455,10 +537,12 @@ class PipelineOrchestrator:
 
         # 4. Step 5b: Script Generation (GPT Sol)
         notify("SCRIPT_GENERATION", 0.45, "Generating craftsman first-person voiceover script with GPT-5.6 Sol...")
+        ch_text = f"\nChapters: {', '.join(ch_titles[:8])}" if ch_titles else ""
+        context_str = f"PROJECT TITLE: {video_title}\nCREATOR: {meta.get('uploader', 'Chronova Engineering')}\nDESCRIPTION: {video_desc}{ch_text}\nURL: {raw_source}"
         script_rec = self.script_gen.generate_script_for_clip(
             clip_uid=canonical_clip_uid,
             output_folder=clip_folder,
-            source_context_text="Antique mechanical restoration documentary cut",
+            source_context_text=context_str,
             clip_index=1,
         )
 
@@ -484,7 +568,7 @@ class PipelineOrchestrator:
             output_folder=clip_folder,
             title_en=script_rec.title_en,
             story_angle=script_rec.story_angle,
-            source_credit=f"Authentic craftsman restoration (Source: {raw_source})",
+            source_credit=f"Authentic precision craftsmanship (Source: {raw_source})",
         )
 
         # 8. Batch Manifest

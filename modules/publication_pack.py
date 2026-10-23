@@ -39,7 +39,7 @@ def normalize_hashtags(raw_tags: list[str]) -> list[str]:
                 cleaned.append(tag_formatted)
     
     # Defaults if insufficient
-    defaults = ["#WorkshopASMR", "#Blacksmithing", "#Craftsmanship", "#Metalworking", "#Handmade"]
+    defaults = ["#WorkshopASMR", "#Machining", "#PrecisionEngineering", "#Watchmaking", "#Craftsmanship"]
     for d in defaults:
         if len(cleaned) >= 5:
             break
@@ -82,21 +82,21 @@ SPEECH CONTENT: {tts_text}
 Output JSON:
 - title_en: final polished title (clean, no clickbait)
 - description_en: 1-3 engaging sentences tailored strictly to this clip
-- hashtags: array of 4-5 hashtags starting with # (e.g. ["#Blacksmithing", "#Metalwork", "#WorkshopASMR"])
+- hashtags: array of 4-5 hashtags starting with # (e.g. ["#Machining", "#PrecisionEngineering", "#Watchmaking", "#WorkshopASMR"])
 """
         try:
             sol_resp = self.sol.generate_structured_json(system_prompt, user_prompt)
             final_title = sol_resp.get("title_en") or title_en
             desc_en = sol_resp.get("description_en") or (
-                f"Watch an artisan craftsman shape metal with traditional hand tools. "
-                f"Authentic workshop sounds tell the story of dedication and skill."
+                f"Watch a master machinist shape precision metal with micrometric tolerances. "
+                f"Authentic workshop sounds tell the story of dedicated craftsmanship."
             )
-            raw_tags = sol_resp.get("hashtags") or ["#Blacksmithing", "#WorkshopASMR", "#Craftsmanship", "#Metalwork"]
+            raw_tags = sol_resp.get("hashtags") or ["#Machining", "#WorkshopASMR", "#Craftsmanship", "#PrecisionEngineering"]
         except Exception as e:
             logger.warning(f"Failed Sol publication pack prompt: {e}. Using deterministic fallback.")
             final_title = title_en
             desc_en = f"A master craftsman shapes raw materials into functional art. Experience authentic workshop ASMR."
-            raw_tags = ["#Blacksmithing", "#WorkshopASMR", "#Craftsmanship", "#Metalwork"]
+            raw_tags = ["#Machining", "#WorkshopASMR", "#Craftsmanship", "#PrecisionEngineering"]
 
         hashtags = normalize_hashtags(raw_tags)
 
